@@ -23,7 +23,6 @@ export function BottomNav({
           badge={requestCount}
           icon={<Home size={21} />}
         />
-
         <NavButton
           label="クエスト"
           active={activeTab === "quests"}
@@ -31,14 +30,12 @@ export function BottomNav({
           badge={questCount}
           icon={<Sword size={21} />}
         />
-
         <NavButton
           label="依頼"
           active={activeTab === "request"}
           onClick={() => setActiveTab("request")}
           icon={<ScrollText size={21} />}
         />
-
         <NavButton
           label="設定"
           active={activeTab === "settings"}
@@ -69,11 +66,13 @@ function NavButton({
       onClick={onClick}
       className={`relative flex flex-col items-center justify-center gap-1 overflow-hidden rounded-2xl border px-2 py-3 backdrop-blur-xl transition-all duration-300 ${
         active
-          ? "scale-[1.03] border-[#89a9cf] bg-gradient-to-b from-[#446f9f] to-[#28476d] text-white shadow-[0_0_25px_rgba(100,160,255,0.45)]"
-          : "border-[#c9a86a]/10 bg-[#111827]/80 text-gray-300"
+          ? "scale-[1.03] border-[#89a9cf] bg-gradient-to-b from-[#446f9f] to-[#28476d] text-[#f4e7c5] shadow-[0_0_25px_rgba(100,160,255,0.45)]"
+          : "border-[#c9a86a]/10 bg-[#111827]/80 text-[#d8c08a]"
       }`}
     >
-      <div className={active ? "text-white" : "text-[#94a3b8]"}>{icon}</div>
+      <div className={active ? "text-[#f4e7c5]" : "text-[#6e8fb4]"}>
+        {icon}
+      </div>
 
       <span className="text-[11px] font-bold">{label}</span>
 

@@ -1,14 +1,10 @@
 "use client";
 
-import { Bell, Shield, UserRound, Users } from "lucide-react";
+import { Bell, ChevronLeft, Shield, UserRound, Users } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
-import type {
-  Notification,
-  NotificationSettings,
-  Profile,
-} from "@/app/page";
+import type { Notification, NotificationSettings, Profile } from "@/app/page";
 
 export function SettingsView({
   user,
@@ -102,11 +98,6 @@ export function SettingsView({
   };
 
   const connectPartner = async () => {
-    if (!profile) {
-      setMessage("先に招待コードを作成してください。");
-      return;
-    }
-
     const code = partnerCode.trim().toUpperCase();
 
     if (!code) {
@@ -114,7 +105,7 @@ export function SettingsView({
       return;
     }
 
-    if (code === profile.invite_code) {
+    if (code === profile?.invite_code) {
       setMessage("自分の招待コードは入力できません。");
       return;
     }
@@ -211,11 +202,6 @@ export function SettingsView({
           />
         </label>
 
-        <div className="mt-4 rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4">
-          <p className="text-sm text-gray-400">HR</p>
-          <p className="mt-1 text-2xl font-black">{profile?.hr || 1}</p>
-        </div>
-
         <button
           onClick={saveProfile}
           className="mt-5 w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-4 font-bold"
@@ -280,28 +266,25 @@ export function SettingsView({
         <div className="space-y-3">
           <NotificationToggle
             title="新しいクエスト"
-            description="相手がクエストを依頼した時に通知する"
+            description="相手がクエストを依頼した時"
             enabled={notificationSettings?.quest_created ?? true}
             onClick={() => toggleNotificationSetting("quest_created")}
           />
-
           <NotificationToggle
             title="クエスト受注"
-            description="自分の依頼が受注された時に通知する"
+            description="自分の依頼が受注された時"
             enabled={notificationSettings?.quest_accepted ?? true}
             onClick={() => toggleNotificationSetting("quest_accepted")}
           />
-
           <NotificationToggle
             title="完了報告"
-            description="相手から完了報告が届いた時に通知する"
+            description="相手から完了報告が届いた時"
             enabled={notificationSettings?.quest_reported ?? true}
             onClick={() => toggleNotificationSetting("quest_reported")}
           />
-
           <NotificationToggle
             title="達成承認"
-            description="自分の報告が承認された時に通知する"
+            description="自分の報告が承認された時"
             enabled={notificationSettings?.quest_approved ?? true}
             onClick={() => toggleNotificationSetting("quest_approved")}
           />
@@ -316,26 +299,16 @@ export function SettingsView({
 
         <div className="mt-5 space-y-3">
           <h3 className="font-title text-xl font-black">通知履歴</h3>
-
           {notifications.length === 0 && <EmptyCard text="通知はありません" />}
-
           {notifications.map((notification) => (
             <div
               key={notification.id}
               className="rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="font-bold">{notification.title}</h3>
-                  <p className="mt-1 text-sm text-gray-400">
-                    {notification.message}
-                  </p>
-                </div>
-
-                {!notification.is_read && (
-                  <span className="h-3 w-3 rounded-full bg-red-500" />
-                )}
-              </div>
+              <h3 className="font-bold">{notification.title}</h3>
+              <p className="mt-1 text-sm text-gray-400">
+                {notification.message}
+              </p>
             </div>
           ))}
         </div>
@@ -353,9 +326,6 @@ export function SettingsView({
           <p>
             報酬や達成条件は、利用者同士で合意した範囲で楽しく運用してください。
           </p>
-          <p>
-            現在は開発中のため、重要な情報の保存や正式な契約用途には使用しないでください。
-          </p>
         </div>
       </SettingsPanel>
     );
@@ -366,24 +336,21 @@ export function SettingsView({
       <SettingCard
         icon={<UserRound />}
         title="アカウント"
-        description="ハンター名・HR・称号"
+        description="ハンター名の変更"
         onClick={() => setSettingsPage("account")}
       />
-
       <SettingCard
         icon={<Users />}
         title="パートナー設定"
         description="招待コード・ギルド連携"
         onClick={() => setSettingsPage("partner")}
       />
-
       <SettingCard
         icon={<Bell />}
         title="通知設定"
         description="通知条件・ON/OFF・履歴"
         onClick={() => setSettingsPage("notifications")}
       />
-
       <SettingCard
         icon={<Shield />}
         title="利用規約"
@@ -405,8 +372,12 @@ function SettingsPanel({
 }) {
   return (
     <section className="rounded-3xl border border-[#c9a86a]/15 bg-[#111827] p-5 shadow-xl">
-      <button onClick={onBack} className="mb-4 text-sm text-[#d8c08a]">
-        ← 設定に戻る
+      <button
+        onClick={onBack}
+        className="mb-5 inline-flex items-center gap-2 rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937] px-4 py-2 text-sm font-bold text-[#d8c08a]"
+      >
+        <ChevronLeft size={18} />
+        設定に戻る
       </button>
       <h2 className="font-title text-3xl font-black">{title}</h2>
       <div className="mt-5">{children}</div>
@@ -433,7 +404,6 @@ function SettingCard({
       <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937] text-[#d8c08a]">
         {icon}
       </div>
-
       <div>
         <h3 className="text-lg font-black">{title}</h3>
         <p className="mt-1 text-sm text-gray-400">{description}</p>
@@ -462,7 +432,6 @@ function NotificationToggle({
         <h3 className="font-bold">{title}</h3>
         <p className="mt-1 text-sm text-gray-400">{description}</p>
       </div>
-
       <div
         className={`flex h-8 w-16 items-center rounded-full border p-1 ${
           enabled

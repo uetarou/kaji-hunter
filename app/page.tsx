@@ -48,6 +48,8 @@ export type NotificationSettings = {
   quest_approved: boolean;
 };
 
+const tabs = ["home", "quests", "request", "settings"];
+
 export default function Page() {
   const [activeTab, setActiveTab] = useState("home");
   const [settingsPage, setSettingsPage] = useState<string | null>(null);
@@ -65,7 +67,11 @@ export default function Page() {
   const [message, setMessage] = useState("");
 
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
+  const [editingQuest, setEditingQuest] = useState<Quest | null>(null);
   const [reportImage, setReportImage] = useState<File | null>(null);
+
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
   const myId = user?.id;
   const partnerId = profile?.partner_id;
@@ -84,7 +90,11 @@ export default function Page() {
       const { data, error } = await supabase.auth.signInAnonymously();
 
       if (error || !data.user) {
-        setMessage("匿名ログインに失敗しました。Supabase設定を確認してください。");
+        setMessage(
+          `匿名ログインに失敗しました: ${
+            error?.message || "ユーザー取得失敗"
+          }`
+        );
         setLoading(false);
         return;
       }
@@ -106,40 +116,23 @@ export default function Page() {
       .eq("id", currentUser.id)
       .maybeSingle();
 
-    if (existing) {
-      const nextProfile = {
-        ...existing,
-        hunter_name: existing.hunter_name || "テストハンター",
-        hr: existing.hr || 1,
-        invite_code: existing.invite_code || inviteCode,
-      };
-
-      const { data } = await supabase
-        .from("profiles")
-        .upsert([nextProfile])
-        .select()
-        .single();
-
-      setProfile(data || nextProfile);
-      return;
-    }
-
-    const newProfile = {
+    const nextProfile = {
       id: currentUser.id,
-      hunter_name: "テストハンター",
-      hr: 1,
-      invite_code: inviteCode,
-      partner_id: null,
+      hunter_name: existing?.hunter_name || "テストハンター",
+      hr: existing?.hr || 1,
+      invite_code: existing?.invite_code || inviteCode,
+      partner_id: existing?.partner_id || null,
     };
 
     const { data, error } = await supabase
       .from("profiles")
-      .upsert([newProfile])
+      .upsert([nextProfile], { onConflict: "id" })
       .select()
       .single();
 
     if (error) {
-      setMessage("プロフィール作成に失敗しました。");
+      setMessage(`プロフィール作成に失敗しました: ${error.message}`);
+      setLoading(false);
       return;
     }
 
@@ -183,6 +176,8 @@ export default function Page() {
     const { data } = await supabase
       .from("quests")
       .select("*")
+      .neq("status", "cancelled")
+      .order("is_urgent", { ascending: false })
       .order("created_at", { ascending: false });
 
     setQuests(data || []);
@@ -355,7 +350,14 @@ export default function Page() {
     setMessage("クエストを依頼しました。");
   };
 
-  const acceptQuest = async (quest: Quest | { title: string; id: string }) => {
+  const acceptQuest = async (
+    quest:
+      | Quest
+      | {
+          id: string;
+          title: string;
+        }
+  ) => {
     if (!user) return;
 
     if (quest.id.startsWith("daily-")) {
@@ -375,6 +377,7 @@ export default function Page() {
 
       await reloadAll();
       setActiveTab("home");
+      setMessage("デイリークエストを受注しました。");
       return;
     }
 
@@ -385,6 +388,7 @@ export default function Page() {
       .update({
         status: "accepted",
         accepted_by: user.id,
+        updated_at: new Date().toISOString(),
       })
       .eq("id", realQuest.id);
 
@@ -397,6 +401,7 @@ export default function Page() {
 
     await reloadAll();
     setActiveTab("home");
+    setMessage("クエストを受注しました。");
   };
 
   const completeQuest = async (questId: string) => {
@@ -430,7 +435,10 @@ export default function Page() {
 
     await supabase
       .from("quests")
-      .update({ status: "waiting_confirm" })
+      .update({
+        status: "waiting_confirm",
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", questId);
 
     await createNotification(
@@ -443,12 +451,16 @@ export default function Page() {
     setSelectedQuest(null);
     setReportImage(null);
     await reloadAll();
+    setMessage("完了報告を送りました。");
   };
 
   const approveQuest = async (quest: Quest) => {
     await supabase
       .from("quests")
-      .update({ status: "completed" })
+      .update({
+        status: "completed",
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", quest.id);
 
     await createNotification(
@@ -459,6 +471,97 @@ export default function Page() {
     );
 
     await reloadAll();
+    setMessage("クエストを承認しました。");
+  };
+
+  const cancelQuest = async (quest: Quest) => {
+    await supabase
+      .from("quests")
+      .update({
+        status: "cancelled",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", quest.id);
+
+    await reloadAll();
+    setMessage("クエストを取り下げました。");
+  };
+
+  const updateQuest = async ({
+    title,
+    description,
+    reward,
+    dueAt,
+    isUrgent,
+  }: {
+    title: string;
+    description: string;
+    reward: string;
+    dueAt: string | null;
+    isUrgent: boolean;
+  }) => {
+    if (!editingQuest) return;
+
+    await supabase
+      .from("quests")
+      .update({
+        title,
+        description,
+        reward,
+        due_at: dueAt,
+        is_urgent: isUrgent,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", editingQuest.id);
+
+    setEditingQuest(null);
+    await reloadAll();
+    setMessage("クエスト内容を変更しました。");
+  };
+
+  const moveTab = (direction: "left" | "right") => {
+    const currentIndex = tabs.indexOf(activeTab);
+    if (currentIndex === -1) return;
+
+    if (direction === "left") {
+      const next = tabs[Math.min(currentIndex + 1, tabs.length - 1)];
+      setActiveTab(next);
+      setSettingsPage(null);
+    }
+
+    if (direction === "right") {
+      const prev = tabs[Math.max(currentIndex - 1, 0)];
+      setActiveTab(prev);
+      setSettingsPage(null);
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLElement>) => {
+    setTouchStartX(e.touches[0].clientX);
+    setTouchStartY(e.touches[0].clientY);
+  };
+
+  const handleTouchEnd = async (e: React.TouchEvent<HTMLElement>) => {
+    if (touchStartX === null || touchStartY === null) return;
+
+    const endX = e.changedTouches[0].clientX;
+    const endY = e.changedTouches[0].clientY;
+
+    const diffX = touchStartX - endX;
+    const diffY = touchStartY - endY;
+
+    if (Math.abs(diffY) > 90 && diffY < 0 && window.scrollY < 20) {
+      await reloadAll();
+      setMessage("最新のクエストを取得しました。");
+    }
+
+    if (Math.abs(diffX) > 80 && Math.abs(diffX) > Math.abs(diffY)) {
+      if (diffX > 0) moveTab("left");
+      if (diffX < 0) moveTab("right");
+    }
+
+    setTouchStartX(null);
+    setTouchStartY(null);
   };
 
   if (loading) {
@@ -473,7 +576,11 @@ export default function Page() {
   }
 
   return (
-    <main className="min-h-screen bg-[#07111f] text-white pb-32">
+    <main
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      className="min-h-screen bg-[#07111f] text-white pb-32"
+    >
       <TopBar
         hunterName={profile?.hunter_name || "テストハンター"}
         hr={profile?.hr || 1}
@@ -490,14 +597,14 @@ export default function Page() {
 
       <div className="mx-auto max-w-md px-4 pt-5">
         {activeTab === "home" && (
-          <div className="space-y-6">
-            <QuestBoard.Home
-              acceptedQuests={acceptedQuests}
-              myRequestQuests={myRequestQuests}
-              onReport={(quest) => setSelectedQuest(quest)}
-              onApprove={approveQuest}
-            />
-          </div>
+          <QuestBoard.Home
+            acceptedQuests={acceptedQuests}
+            myRequestQuests={myRequestQuests}
+            onReport={(quest) => setSelectedQuest(quest)}
+            onApprove={approveQuest}
+            onEdit={(quest) => setEditingQuest(quest)}
+            onCancel={cancelQuest}
+          />
         )}
 
         {activeTab === "quests" && (
@@ -508,6 +615,12 @@ export default function Page() {
         )}
 
         {activeTab === "request" && <RequestForm onCreate={createQuest} />}
+
+        {activeTab === "settings" && !user && (
+          <div className="rounded-3xl border border-[#c9a86a]/15 bg-[#111827] p-5 text-[#d8c08a]">
+            匿名ログインに失敗しています。SupabaseのAnonymous Sign-InsをONにしてください。
+          </div>
+        )}
 
         {activeTab === "settings" && user && (
           <SettingsView
@@ -537,6 +650,14 @@ export default function Page() {
         />
       )}
 
+      {editingQuest && (
+        <EditQuestModal
+          quest={editingQuest}
+          onClose={() => setEditingQuest(null)}
+          onSubmit={updateQuest}
+        />
+      )}
+
       <BottomNav
         activeTab={activeTab}
         setActiveTab={(tab) => {
@@ -548,5 +669,159 @@ export default function Page() {
         unreadCount={unreadCount}
       />
     </main>
+  );
+}
+
+function EditQuestModal({
+  quest,
+  onClose,
+  onSubmit,
+}: {
+  quest: Quest;
+  onClose: () => void;
+  onSubmit: (quest: {
+    title: string;
+    description: string;
+    reward: string;
+    dueAt: string | null;
+    isUrgent: boolean;
+  }) => void;
+}) {
+  const [title, setTitle] = useState(quest.title);
+  const [description, setDescription] = useState(quest.description || "");
+  const [reward, setReward] = useState(quest.reward || "");
+  const [isUrgent, setIsUrgent] = useState(quest.is_urgent);
+
+  const initialDate = quest.due_at ? new Date(quest.due_at) : null;
+  const [dueDate, setDueDate] = useState(
+    initialDate ? initialDate.toISOString().slice(0, 10) : ""
+  );
+  const [dueTime, setDueTime] = useState(
+    initialDate ? initialDate.toTimeString().slice(0, 5) : ""
+  );
+
+  const submit = () => {
+    if (!title.trim()) return;
+
+    const dueAt =
+      dueDate && dueTime ? new Date(`${dueDate}T${dueTime}`).toISOString() : null;
+
+    onSubmit({
+      title,
+      description,
+      reward,
+      dueAt,
+      isUrgent,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end bg-black/70 backdrop-blur-sm">
+      <div className="mx-auto max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-3xl border-t border-[#c9a86a]/20 bg-[#111827] p-5 shadow-2xl">
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-[#d8c08a]">Edit Quest</p>
+            <h2 className="font-title text-3xl font-black">依頼内容変更</h2>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] text-gray-400"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="mb-5 grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setIsUrgent(false)}
+            className={`rounded-2xl border p-3 font-bold ${
+              !isUrgent
+                ? "border-[#6e8fb4] bg-[#355e8d]"
+                : "border-[#c9a86a]/10 bg-[#1f2937]"
+            }`}
+          >
+            通常
+          </button>
+
+          <button
+            onClick={() => setIsUrgent(true)}
+            className={`rounded-2xl border p-3 font-bold ${
+              isUrgent
+                ? "border-red-300/50 bg-red-700"
+                : "border-[#c9a86a]/10 bg-[#1f2937]"
+            }`}
+          >
+            緊急
+          </button>
+        </div>
+
+        <div className="space-y-5">
+          <InputBlock label="クエスト名">
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none"
+            />
+          </InputBlock>
+
+          <InputBlock label="依頼内容">
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="h-28 w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none"
+            />
+          </InputBlock>
+
+          <InputBlock label="希望日">
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none"
+            />
+          </InputBlock>
+
+          <InputBlock label="希望時間">
+            <input
+              type="time"
+              value={dueTime}
+              onChange={(e) => setDueTime(e.target.value)}
+              className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none"
+            />
+          </InputBlock>
+
+          <InputBlock label="報酬">
+            <input
+              value={reward}
+              onChange={(e) => setReward(e.target.value)}
+              className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none"
+            />
+          </InputBlock>
+
+          <button
+            onClick={submit}
+            className="w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-4 font-bold text-white shadow-lg"
+          >
+            変更を保存する
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InputBlock({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <p className="mb-2 text-sm font-bold text-[#d8c08a]">{label}</p>
+      {children}
+    </label>
   );
 }
