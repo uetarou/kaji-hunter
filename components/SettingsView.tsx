@@ -42,18 +42,14 @@ export function SettingsView({
     setHunterName(profile?.hunter_name || "テストハンター");
   }, [profile?.hunter_name]);
 
-  const generateInviteCode = (userId: string) => {
-    return userId.slice(0, 8).toUpperCase();
-  };
+  const generateInviteCode = (userId: string) => userId.slice(0, 8).toUpperCase();
 
   const saveProfile = async () => {
-    const inviteCode = profile?.invite_code || generateInviteCode(user.id);
-
     const nextProfile = {
       id: user.id,
       hunter_name: hunterName.trim() || "テストハンター",
       hr: profile?.hr || 1,
-      invite_code: inviteCode,
+      invite_code: profile?.invite_code || generateInviteCode(user.id),
       partner_id: profile?.partner_id || null,
     };
 
@@ -134,29 +130,54 @@ export function SettingsView({
       return;
     }
 
-    const { error: myUpdateError } = await supabase
+    const { error: myError } = await supabase
       .from("profiles")
       .update({ partner_id: partner.id })
       .eq("id", user.id);
 
-    if (myUpdateError) {
-      setMessage(`連携に失敗しました: ${myUpdateError.message}`);
+    if (myError) {
+      setMessage(`自分側の連携に失敗しました: ${myError.message}`);
       return;
     }
 
-    const { error: partnerUpdateError } = await supabase
+    const { error: partnerError } = await supabase
       .from("profiles")
       .update({ partner_id: user.id })
       .eq("id", partner.id);
 
-    if (partnerUpdateError) {
-      setMessage(`相手側の連携に失敗しました: ${partnerUpdateError.message}`);
+    if (partnerError) {
+      setMessage(`相手側の連携に失敗しました: ${partnerError.message}`);
       return;
     }
 
     setPartnerProfile(partner);
     setPartnerCode("");
     setMessage("パートナー連携が完了しました。");
+    await reloadAll();
+  };
+
+  const disconnectPartner = async () => {
+    const currentPartnerId = profile?.partner_id;
+
+    const { error: myError } = await supabase
+      .from("profiles")
+      .update({ partner_id: null })
+      .eq("id", user.id);
+
+    if (myError) {
+      setMessage(`連携解除に失敗しました: ${myError.message}`);
+      return;
+    }
+
+    if (currentPartnerId) {
+      await supabase
+        .from("profiles")
+        .update({ partner_id: null })
+        .eq("id", currentPartnerId);
+    }
+
+    setPartnerProfile(null);
+    setMessage("パートナー連携を解除しました。");
     await reloadAll();
   };
 
@@ -281,6 +302,15 @@ export function SettingsView({
         >
           パートナーと連携する
         </button>
+
+        {profile?.partner_id && (
+          <button
+            onClick={disconnectPartner}
+            className="mt-4 w-full rounded-2xl border border-red-300/30 bg-red-900/50 py-4 font-bold text-red-100"
+          >
+            パートナー連携を解除する
+          </button>
+        )}
       </SettingsPanel>
     );
   }
@@ -332,18 +362,10 @@ export function SettingsView({
               key={notification.id}
               className="rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="font-bold">{notification.title}</h3>
-                  <p className="mt-1 text-sm text-gray-400">
-                    {notification.message}
-                  </p>
-                </div>
-
-                {!notification.is_read && (
-                  <span className="mt-1 h-3 w-3 shrink-0 rounded-full bg-red-500" />
-                )}
-              </div>
+              <h3 className="font-bold">{notification.title}</h3>
+              <p className="mt-1 text-sm text-gray-400">
+                {notification.message}
+              </p>
             </div>
           ))}
         </div>

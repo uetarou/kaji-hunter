@@ -649,9 +649,8 @@ export default function Page() {
     const endY = e.changedTouches[0].clientY;
 
     const diffX = touchStartX - endX;
-    const diffY = touchStartY - endY;
 
-    if (Math.abs(diffX) > 80 && Math.abs(diffX) > Math.abs(diffY)) {
+    if (Math.abs(diffX) > 80) {
       if (diffX > 0) moveTab("left");
       if (diffX < 0) moveTab("right");
     }
@@ -692,7 +691,7 @@ export default function Page() {
       className="min-h-screen overflow-x-hidden bg-[#07111f] pb-32 text-white"
     >
       <div
-        className="flex items-center justify-center overflow-hidden text-sm font-bold text-[#d8c08a] transition-all duration-300"
+        className="fixed left-0 right-0 top-0 z-30 flex items-center justify-center overflow-hidden bg-[#07111f] text-sm font-bold text-[#d8c08a] transition-all duration-300"
         style={{
           height: `${pullDistance}px`,
           opacity: pullDistance > 20 || isRefreshing ? 1 : 0,
@@ -720,15 +719,13 @@ export default function Page() {
           unreadCount={unreadCount}
         />
 
-        {message && (
-          <div className="mx-auto max-w-md px-4 pt-4">
-            <div className="rounded-2xl border border-[#c9a86a]/20 bg-[#111827] p-3 text-sm text-[#d8c08a]">
+        <div className="mx-auto max-w-md px-4 pt-[125px]">
+          {message && (
+            <div className="mb-4 rounded-2xl border border-[#c9a86a]/20 bg-[#111827] p-3 text-sm text-[#d8c08a]">
               {message}
             </div>
-          </div>
-        )}
+          )}
 
-        <div className="mx-auto max-w-md px-4 pt-5">
           {activeTab === "home" && (
             <QuestBoard.Home
               acceptedQuests={acceptedQuests}
@@ -850,7 +847,7 @@ function EditQuestModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 pb-36 pt-6 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 pb-36 pt-20 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-3xl border border-[#c9a86a]/20 bg-[#111827] p-4 shadow-2xl">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
@@ -935,7 +932,7 @@ function EditQuestModal({
 
           <button
             onClick={submit}
-            className="w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-3 font-bold text-white shadow-lg"
+            className="mb-8 w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-3 font-bold text-white shadow-lg"
           >
             変更を保存する
           </button>
