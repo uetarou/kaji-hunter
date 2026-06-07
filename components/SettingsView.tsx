@@ -303,7 +303,7 @@ export function SettingsView({
           パートナーと連携する
         </button>
 
-        {profile?.partner_id && (
+        {(profile?.partner_id || partnerProfile?.id) && (
           <button
             onClick={disconnectPartner}
             className="mt-4 w-full rounded-2xl border border-red-300/30 bg-red-900/50 py-4 font-bold text-red-100"
