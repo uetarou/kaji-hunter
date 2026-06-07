@@ -1,14 +1,15 @@
-import { MetadataRoute } from "next";
+import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Kaji Hunter",
     short_name: "Kaji Hunter",
-    description: "家事をクエスト化するアプリ",
+    description: "家事クエストを依頼・受注できるハンターアプリ",
     start_url: "/",
     display: "standalone",
-    background_color: "#fef6e9",
-    theme_color: "#f97316",
+    background_color: "#07111f",
+    theme_color: "#07111f",
+    orientation: "portrait",
     icons: [
       {
         src: "/icon-192.png",
