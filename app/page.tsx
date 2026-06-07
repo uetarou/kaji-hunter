@@ -23,9 +23,11 @@ export default function Home() {
   const [category, setCategory] = useState("掃除");
   const [reward, setReward] = useState("");
 
-  const [expandedCard, setExpandedCard] = useState(false);
+  const [selectedQuest, setSelectedQuest] =
+    useState<Quest | null>(null);
 
-  const [reportImage, setReportImage] = useState<File | null>(null);
+  const [reportImage, setReportImage] =
+    useState<File | null>(null);
 
   const fetchQuests = async () => {
     const { data } = await supabase
@@ -52,7 +54,8 @@ export default function Home() {
         reward,
         status: "recruiting",
         is_urgent: false,
-        created_by: "11111111-1111-1111-1111-111111111111",
+        created_by:
+          "11111111-1111-1111-1111-111111111111",
       },
     ]);
 
@@ -64,20 +67,16 @@ export default function Home() {
     setActiveTab("quests");
   };
 
-  const recruitingQuests = useMemo(
-    () => quests.filter((q) => q.status === "recruiting"),
-    [quests]
-  );
+  const acceptQuest = async (questId: string) => {
+    await supabase
+      .from("quests")
+      .update({
+        status: "accepted",
+      })
+      .eq("id", questId);
 
-  const acceptedQuests = useMemo(
-    () => quests.filter((q) => q.status === "accepted"),
-    [quests]
-  );
-
-  const waitingQuests = useMemo(
-    () => quests.filter((q) => q.status === "waiting_confirm"),
-    [quests]
-  );
+    fetchQuests();
+  };
 
   const completeQuest = async (questId: string) => {
     let imageUrl = "";
@@ -85,9 +84,10 @@ export default function Home() {
     if (reportImage) {
       const fileName = `${Date.now()}-${reportImage.name}`;
 
-      const { data: uploadData } = await supabase.storage
-        .from("quest-reports")
-        .upload(fileName, reportImage);
+      const { data: uploadData } =
+        await supabase.storage
+          .from("quest-reports")
+          .upload(fileName, reportImage);
 
       if (uploadData) {
         const { data } = supabase.storage
@@ -112,6 +112,7 @@ export default function Home() {
       })
       .eq("id", questId);
 
+    setSelectedQuest(null);
     setReportImage(null);
 
     fetchQuests();
@@ -128,112 +129,85 @@ export default function Home() {
     fetchQuests();
   };
 
-  const acceptQuest = async (questId: string) => {
-    await supabase
-      .from("quests")
-      .update({
-        status: "accepted",
-      })
-      .eq("id", questId);
+  const recruitingQuests = useMemo(
+    () =>
+      quests.filter(
+        (q) => q.status === "recruiting"
+      ),
+    [quests]
+  );
 
-    fetchQuests();
-  };
+  const acceptedQuests = useMemo(
+    () =>
+      quests.filter((q) => q.status === "accepted"),
+    [quests]
+  );
+
+  const waitingQuests = useMemo(
+    () =>
+      quests.filter(
+        (q) => q.status === "waiting_confirm"
+      ),
+    [quests]
+  );
 
   return (
-    <main className="min-h-screen bg-[#070b14] text-white pb-32">
-      <div className="max-w-md mx-auto px-4 pt-4">
-        {/* Guild Card */}
-        <div
-          onClick={() => setExpandedCard(!expandedCard)}
-          className="bg-gradient-to-br from-[#111827] to-[#1e293b]
-          border border-[#334155]
-          rounded-3xl
-          p-5
-          shadow-2xl
-          mb-5
-          cursor-pointer"
-        >
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-xs text-cyan-400 mb-1">
-                Kaji Hunter Guild
+    <main className="min-h-screen bg-[#020817] text-white pb-32">
+      {/* TOP BAR */}
+      <div
+        className="
+        sticky top-0 z-50
+        bg-gradient-to-r
+        from-[#071120]
+        via-[#0b1730]
+        to-[#102348]
+        border-b border-cyan-500/20
+        shadow-2xl
+        "
+      >
+        <div className="max-w-md mx-auto px-5 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-black tracking-wide">
+              Kaji Hunter
+            </h1>
+
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-sm text-cyan-300">
+                テストハンター
               </p>
 
-              <h1 className="text-3xl font-bold tracking-wide">
-                Kaji Hunter
-              </h1>
+              <div className="w-1 h-1 bg-cyan-300 rounded-full" />
 
-              <div className="mt-3">
-                <p className="text-sm text-gray-400">
-                  テストハンター
-                </p>
-
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-2xl font-bold">
-                    HR 1
-                  </span>
-
-                  <span className="text-cyan-400 text-sm">
-                    見習いハンター
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="w-16 h-16 rounded-full bg-cyan-500/20 border border-cyan-400 flex items-center justify-center text-cyan-300">
-              ⚔
+              <p className="text-sm text-cyan-100 font-bold">
+                HR 1
+              </p>
             </div>
           </div>
 
-          <div className="mt-4">
-            <div className="w-full bg-[#0f172a] rounded-full h-3 overflow-hidden">
-              <div className="bg-cyan-400 h-3 w-[30%]" />
-            </div>
-
-            <p className="text-xs text-gray-400 mt-2">
-              XP 30 / 100
-            </p>
+          <div
+            className="
+            w-12 h-12
+            rounded-2xl
+            bg-cyan-400/10
+            border border-cyan-400/30
+            flex items-center justify-center
+            text-cyan-300 text-xl
+            "
+          >
+            ⚔
           </div>
-
-          {expandedCard && (
-            <div className="grid grid-cols-2 gap-3 mt-5">
-              <div className="bg-[#0f172a] rounded-2xl p-3">
-                <p className="text-xs text-gray-400">
-                  完了クエスト
-                </p>
-
-                <p className="text-xl font-bold mt-1">
-                  12
-                </p>
-              </div>
-
-              <div className="bg-[#0f172a] rounded-2xl p-3">
-                <p className="text-xs text-gray-400">
-                  連続達成
-                </p>
-
-                <p className="text-xl font-bold mt-1">
-                  4日
-                </p>
-              </div>
-
-              <div className="bg-[#0f172a] rounded-2xl p-3 col-span-2">
-                <p className="text-xs text-gray-400">
-                  称号
-                </p>
-
-                <p className="text-lg font-semibold mt-1 text-cyan-300">
-                  蒼銀の掃討者
-                </p>
-              </div>
-            </div>
-          )}
         </div>
+      </div>
 
+      <div className="max-w-md mx-auto px-4 pt-5">
         {/* HOME */}
         {activeTab === "home" && (
-          <div className="space-y-4">
-            <SectionTitle title="受注中クエスト" badge={acceptedQuests.length} />
+          <div className="space-y-5">
+            {/* 受注中 */}
+            <SectionTitle
+              title="受注中クエスト"
+              badge={acceptedQuests.length}
+            />
 
             {acceptedQuests.length === 0 && (
               <EmptyCard text="受注中クエストはありません" />
@@ -242,69 +216,83 @@ export default function Home() {
             {acceptedQuests.map((quest) => (
               <div
                 key={quest.id}
-                className="bg-[#111827] border border-[#334155] rounded-3xl p-4"
+                className="
+                bg-[#0b1220]
+                border border-[#1e293b]
+                rounded-3xl
+                p-4
+                flex items-center justify-between
+                "
               >
-                <div className="flex justify-between">
-                  <div>
-                    <h2 className="font-bold text-lg">
-                      {quest.title}
-                    </h2>
+                <div>
+                  <h2 className="font-bold text-lg">
+                    {quest.title}
+                  </h2>
 
-                    <p className="text-sm text-gray-400 mt-1">
-                      {quest.category}
-                    </p>
-                  </div>
-
-                  <div className="text-cyan-400 text-sm">
+                  <p className="text-sm text-cyan-300 mt-1">
                     進行中
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <label className="block text-sm mb-2">
-                    完了証拠画像
-                  </label>
-
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={(e) =>
-                      setReportImage(
-                        e.target.files?.[0] || null
-                      )
-                    }
-                    className="text-sm"
-                  />
+                  </p>
                 </div>
 
                 <button
-                  onClick={() => completeQuest(quest.id)}
-                  className="w-full mt-4 bg-cyan-500 hover:bg-cyan-400 text-black font-bold py-3 rounded-2xl"
+                  onClick={() =>
+                    setSelectedQuest(quest)
+                  }
+                  className="
+                  bg-blue-500
+                  hover:bg-blue-400
+                  text-white
+                  px-5 py-3
+                  rounded-2xl
+                  font-bold
+                  "
                 >
-                  完了報告する
+                  報告
                 </button>
               </div>
             ))}
 
-            <SectionTitle title="確認待ち" badge={waitingQuests.length} />
+            {/* 依頼中 */}
+            <SectionTitle
+              title="依頼中クエスト"
+              badge={waitingQuests.length}
+            />
+
+            {waitingQuests.length === 0 && (
+              <EmptyCard text="依頼中クエストはありません" />
+            )}
 
             {waitingQuests.map((quest) => (
               <div
                 key={quest.id}
-                className="bg-[#111827] border border-yellow-500 rounded-3xl p-4"
+                className="
+                bg-[#0b1220]
+                border border-yellow-500/40
+                rounded-3xl
+                p-4
+                "
               >
                 <h2 className="font-bold text-lg">
                   {quest.title}
                 </h2>
 
                 <p className="text-yellow-300 text-sm mt-1">
-                  パートナーの確認待ち
+                  完了確認待ち
                 </p>
 
                 <button
-                  onClick={() => approveQuest(quest.id)}
-                  className="w-full mt-4 bg-green-500 hover:bg-green-400 text-black font-bold py-3 rounded-2xl"
+                  onClick={() =>
+                    approveQuest(quest.id)
+                  }
+                  className="
+                  w-full mt-4
+                  bg-green-500
+                  hover:bg-green-400
+                  text-black
+                  font-bold
+                  py-3
+                  rounded-2xl
+                  "
                 >
                   達成承認
                 </button>
@@ -330,44 +318,56 @@ export default function Home() {
                 recruitingQuests.map((quest) => (
                   <div
                     key={quest.id}
-                    className="bg-[#111827]
-                    border border-[#334155]
+                    className="
+                    bg-[#0b1220]
+                    border border-[#1e293b]
                     rounded-3xl
-                    p-4"
+                    p-5
+                    "
                   >
-                    <div className="flex justify-between items-start">
+                    <div className="flex justify-between">
                       <div>
                         <h2 className="text-xl font-bold">
                           {quest.title}
                         </h2>
 
-                        <p className="text-gray-400 text-sm mt-1">
+                        <p className="text-gray-400 text-sm mt-2">
                           {quest.description}
                         </p>
                       </div>
 
                       {quest.is_urgent && (
-                        <span className="bg-red-500 text-xs px-2 py-1 rounded-full">
+                        <div className="bg-red-500 px-2 py-1 rounded-full text-xs">
                           緊急
-                        </span>
+                        </div>
                       )}
                     </div>
 
                     <div className="flex gap-2 mt-4">
-                      <div className="bg-[#0f172a] px-3 py-2 rounded-xl text-sm">
+                      <div className="bg-[#111827] px-3 py-2 rounded-xl text-sm">
                         {quest.category}
                       </div>
 
                       {quest.reward && (
-                        <div className="bg-[#0f172a] px-3 py-2 rounded-xl text-sm">
+                        <div className="bg-[#111827] px-3 py-2 rounded-xl text-sm">
                           報酬: {quest.reward}
                         </div>
                       )}
                     </div>
 
                     <button
-                      onClick={() => acceptQuest(quest.id)}
-                      className="w-full mt-5 bg-cyan-500 hover:bg-cyan-400 text-black font-bold py-3 rounded-2xl"
+                      onClick={() =>
+                        acceptQuest(quest.id)
+                      }
+                      className="
+                      w-full mt-5
+                      bg-blue-500
+                      hover:bg-blue-400
+                      text-white
+                      font-bold
+                      py-3
+                      rounded-2xl
+                      "
                     >
                       クエスト受注
                     </button>
@@ -379,8 +379,15 @@ export default function Home() {
 
         {/* REQUEST */}
         {activeTab === "request" && (
-          <div className="bg-[#111827] border border-[#334155] rounded-3xl p-5">
-            <p className="text-cyan-400 text-sm mb-1">
+          <div
+            className="
+            bg-[#0b1220]
+            border border-[#1e293b]
+            rounded-3xl
+            p-5
+            "
+          >
+            <p className="text-cyan-300 text-sm mb-1">
               New Quest
             </p>
 
@@ -390,23 +397,48 @@ export default function Home() {
 
             <div className="space-y-4">
               <input
-                placeholder="例：お風呂掃除クエスト"
+                placeholder="例：お風呂掃除"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-2xl p-4"
+                onChange={(e) =>
+                  setTitle(e.target.value)
+                }
+                className="
+                w-full
+                bg-[#111827]
+                border border-[#1e293b]
+                rounded-2xl
+                p-4
+                "
               />
 
               <textarea
-                placeholder="内容：排水溝と床をきれいにする"
+                placeholder="内容を書く"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-2xl p-4 h-32"
+                onChange={(e) =>
+                  setDescription(e.target.value)
+                }
+                className="
+                w-full
+                h-32
+                bg-[#111827]
+                border border-[#1e293b]
+                rounded-2xl
+                p-4
+                "
               />
 
               <select
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-2xl p-4"
+                onChange={(e) =>
+                  setCategory(e.target.value)
+                }
+                className="
+                w-full
+                bg-[#111827]
+                border border-[#1e293b]
+                rounded-2xl
+                p-4
+                "
               >
                 <option>掃除</option>
                 <option>料理</option>
@@ -415,15 +447,31 @@ export default function Home() {
               </select>
 
               <input
-                placeholder="報酬：プリン1個"
+                placeholder="報酬：プリン"
                 value={reward}
-                onChange={(e) => setReward(e.target.value)}
-                className="w-full bg-[#0f172a] border border-[#334155] rounded-2xl p-4"
+                onChange={(e) =>
+                  setReward(e.target.value)
+                }
+                className="
+                w-full
+                bg-[#111827]
+                border border-[#1e293b]
+                rounded-2xl
+                p-4
+                "
               />
 
               <button
                 onClick={createQuest}
-                className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold py-4 rounded-2xl"
+                className="
+                w-full
+                bg-blue-500
+                hover:bg-blue-400
+                text-white
+                font-bold
+                py-4
+                rounded-2xl
+                "
               >
                 ギルドに依頼する
               </button>
@@ -435,47 +483,143 @@ export default function Home() {
         {activeTab === "settings" && (
           <div className="space-y-4">
             <SettingCard title="アカウント" />
-            <SettingCard title="パートナー招待" />
+            <SettingCard title="パートナー設定" />
             <SettingCard title="通知設定" />
             <SettingCard title="利用規約" />
-            <SettingCard title="アプリ情報" />
           </div>
         )}
       </div>
 
-      {/* Bottom Nav */}
+      {/* REPORT MODAL */}
+      {selectedQuest && (
+        <div
+          className="
+          fixed inset-0 z-50
+          bg-black/70
+          backdrop-blur-sm
+          flex items-end
+          "
+        >
+          <div
+            className="
+            bg-[#0b1220]
+            border-t border-[#1e293b]
+            w-full
+            rounded-t-3xl
+            p-5
+            max-w-md
+            mx-auto
+            "
+          >
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-2xl font-bold">
+                完了報告
+              </h2>
+
+              <button
+                onClick={() =>
+                  setSelectedQuest(null)
+                }
+                className="text-gray-400"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-[#111827] rounded-2xl p-4 mb-5">
+              <p className="text-sm text-gray-400">
+                クエスト
+              </p>
+
+              <h3 className="text-xl font-bold mt-1">
+                {selectedQuest.title}
+              </h3>
+
+              <p className="text-gray-400 mt-3 text-sm">
+                {selectedQuest.description}
+              </p>
+            </div>
+
+            <div className="mb-5">
+              <label className="block mb-2 font-semibold">
+                完了証拠画像
+              </label>
+
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={(e) =>
+                  setReportImage(
+                    e.target.files?.[0] || null
+                  )
+                }
+                className="text-sm"
+              />
+            </div>
+
+            <button
+              onClick={() =>
+                completeQuest(selectedQuest.id)
+              }
+              className="
+              w-full
+              bg-blue-500
+              hover:bg-blue-400
+              text-white
+              font-bold
+              py-4
+              rounded-2xl
+              "
+            >
+              完了報告する
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* BOTTOM NAV */}
       <div
-        className="fixed bottom-0 left-0 right-0
-        bg-[#0b1120]/95
+        className="
+        fixed bottom-0 left-0 right-0
+        bg-[#08111f]/95
         backdrop-blur-xl
         border-t border-[#1e293b]
-        px-3 py-4"
+        px-3 py-4
+        "
       >
         <div className="max-w-md mx-auto grid grid-cols-4 gap-2">
           <NavButton
             label="ホーム"
             active={activeTab === "home"}
-            onClick={() => setActiveTab("home")}
-            badge={waitingQuests.length}
+            onClick={() =>
+              setActiveTab("home")
+            }
           />
 
           <NavButton
             label="クエスト"
             active={activeTab === "quests"}
-            onClick={() => setActiveTab("quests")}
+            onClick={() =>
+              setActiveTab("quests")
+            }
             badge={recruitingQuests.length}
           />
 
           <NavButton
             label="依頼"
             active={activeTab === "request"}
-            onClick={() => setActiveTab("request")}
+            onClick={() =>
+              setActiveTab("request")
+            }
           />
 
           <NavButton
             label="設定"
             active={activeTab === "settings"}
-            onClick={() => setActiveTab("settings")}
+            onClick={() =>
+              setActiveTab("settings")
+            }
           />
         </div>
       </div>
@@ -491,13 +635,22 @@ function SectionTitle({
   badge?: number;
 }) {
   return (
-    <div className="flex items-center gap-2 mb-3">
-      <h2 className="text-2xl font-bold">
+    <div className="flex items-center gap-2">
+      <h2 className="text-3xl font-black">
         {title}
       </h2>
 
       {!!badge && (
-        <div className="bg-red-500 text-xs w-6 h-6 rounded-full flex items-center justify-center">
+        <div
+          className="
+          bg-red-500
+          text-white
+          w-7 h-7
+          rounded-full
+          flex items-center justify-center
+          text-sm
+          "
+        >
           {badge}
         </div>
       )}
@@ -507,15 +660,35 @@ function SectionTitle({
 
 function EmptyCard({ text }: { text: string }) {
   return (
-    <div className="bg-[#111827] border border-[#334155] rounded-3xl p-6 text-center text-gray-400">
+    <div
+      className="
+      bg-[#0b1220]
+      border border-[#1e293b]
+      rounded-3xl
+      p-6
+      text-center
+      text-gray-400
+      "
+    >
       {text}
     </div>
   );
 }
 
-function SettingCard({ title }: { title: string }) {
+function SettingCard({
+  title,
+}: {
+  title: string;
+}) {
   return (
-    <div className="bg-[#111827] border border-[#334155] rounded-3xl p-5">
+    <div
+      className="
+      bg-[#0b1220]
+      border border-[#1e293b]
+      rounded-3xl
+      p-5
+      "
+    >
       {title}
     </div>
   );
@@ -535,16 +708,35 @@ function NavButton({
   return (
     <button
       onClick={onClick}
-      className={`relative py-3 rounded-2xl text-sm font-semibold transition ${
+      className={`
+      relative
+      py-3
+      rounded-2xl
+      text-sm
+      font-bold
+      transition
+      ${
         active
-          ? "bg-cyan-500 text-black"
+          ? "bg-blue-500 text-white"
           : "bg-[#111827] text-gray-300"
-      }`}
+      }
+      `}
     >
       {label}
 
       {!!badge && (
-        <div className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center">
+        <div
+          className="
+          absolute
+          -top-1 -right-1
+          bg-red-500
+          text-white
+          w-5 h-5
+          rounded-full
+          flex items-center justify-center
+          text-[10px]
+          "
+        >
           {badge}
         </div>
       )}
