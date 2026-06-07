@@ -152,49 +152,52 @@ export default function Home() {
   );
 
   return (
-    <main className="min-h-screen bg-[#020817] text-white pb-32">
+    <main className="min-h-screen bg-[#07111f] text-white pb-32">
       {/* TOP BAR */}
       <div
         className="
         sticky top-0 z-50
         bg-gradient-to-r
-        from-[#071120]
-        via-[#0b1730]
-        to-[#102348]
-        border-b border-cyan-500/20
+        from-[#0b1425]
+        via-[#13233d]
+        to-[#0d1a30]
+        border-b border-[#c9a86a]/30
         shadow-2xl
         "
       >
         <div className="max-w-md mx-auto px-5 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-black tracking-wide">
-              Kaji Hunter
-            </h1>
-
-            <div className="flex items-center gap-2 mt-1">
-              <p className="text-sm text-cyan-300">
-                テストハンター
-              </p>
-
-              <div className="w-1 h-1 bg-cyan-300 rounded-full" />
-
-              <p className="text-sm text-cyan-100 font-bold">
-                HR 1
-              </p>
+          <div className="flex items-center gap-4">
+            <div
+              className="
+              w-12 h-12
+              rounded-2xl
+              border border-[#c9a86a]/40
+              bg-[#111827]
+              flex items-center justify-center
+              text-[#d8c08a]
+              text-xl
+              "
+            >
+              ⚔
             </div>
-          </div>
 
-          <div
-            className="
-            w-12 h-12
-            rounded-2xl
-            bg-cyan-400/10
-            border border-cyan-400/30
-            flex items-center justify-center
-            text-cyan-300 text-xl
-            "
-          >
-            ⚔
+            <div>
+              <h1 className="text-2xl font-black tracking-wide">
+                Kaji Hunter
+              </h1>
+
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-sm text-[#d8c08a]">
+                  テストハンター
+                </p>
+
+                <div className="w-1 h-1 bg-[#d8c08a] rounded-full" />
+
+                <p className="text-sm text-[#e2e8f0] font-bold">
+                  HR 1
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -203,7 +206,6 @@ export default function Home() {
         {/* HOME */}
         {activeTab === "home" && (
           <div className="space-y-5">
-            {/* 受注中 */}
             <SectionTitle
               title="受注中クエスト"
               badge={acceptedQuests.length}
@@ -217,19 +219,20 @@ export default function Home() {
               <div
                 key={quest.id}
                 className="
-                bg-[#0b1220]
-                border border-[#1e293b]
+                bg-[#111827]
+                border border-[#c9a86a]/15
                 rounded-3xl
-                p-4
+                p-5
                 flex items-center justify-between
+                shadow-lg
                 "
               >
                 <div>
-                  <h2 className="font-bold text-lg">
+                  <h2 className="font-bold text-2xl">
                     {quest.title}
                   </h2>
 
-                  <p className="text-sm text-cyan-300 mt-1">
+                  <p className="text-sm text-[#d8c08a] mt-2">
                     進行中
                   </p>
                 </div>
@@ -239,12 +242,14 @@ export default function Home() {
                     setSelectedQuest(quest)
                   }
                   className="
-                  bg-blue-500
-                  hover:bg-blue-400
+                  bg-[#355e8d]
+                  hover:bg-[#446f9f]
+                  border border-[#6e8fb4]
                   text-white
                   px-5 py-3
                   rounded-2xl
                   font-bold
+                  shadow-lg
                   "
                 >
                   報告
@@ -266,17 +271,17 @@ export default function Home() {
               <div
                 key={quest.id}
                 className="
-                bg-[#0b1220]
-                border border-yellow-500/40
+                bg-[#111827]
+                border border-[#c9a86a]/15
                 rounded-3xl
-                p-4
+                p-5
                 "
               >
-                <h2 className="font-bold text-lg">
+                <h2 className="font-bold text-2xl">
                   {quest.title}
                 </h2>
 
-                <p className="text-yellow-300 text-sm mt-1">
+                <p className="text-[#d8c08a] text-sm mt-2">
                   完了確認待ち
                 </p>
 
@@ -285,12 +290,12 @@ export default function Home() {
                     approveQuest(quest.id)
                   }
                   className="
-                  w-full mt-4
-                  bg-green-500
-                  hover:bg-green-400
-                  text-black
+                  w-full mt-5
+                  bg-[#6b8e5a]
+                  hover:bg-[#7ba768]
+                  text-white
                   font-bold
-                  py-3
+                  py-4
                   rounded-2xl
                   "
                 >
@@ -319,19 +324,19 @@ export default function Home() {
                   <div
                     key={quest.id}
                     className="
-                    bg-[#0b1220]
-                    border border-[#1e293b]
+                    bg-[#111827]
+                    border border-[#c9a86a]/15
                     rounded-3xl
                     p-5
                     "
                   >
                     <div className="flex justify-between">
                       <div>
-                        <h2 className="text-xl font-bold">
+                        <h2 className="text-2xl font-bold">
                           {quest.title}
                         </h2>
 
-                        <p className="text-gray-400 text-sm mt-2">
+                        <p className="text-gray-400 text-sm mt-3">
                           {quest.description}
                         </p>
                       </div>
@@ -343,13 +348,13 @@ export default function Home() {
                       )}
                     </div>
 
-                    <div className="flex gap-2 mt-4">
-                      <div className="bg-[#111827] px-3 py-2 rounded-xl text-sm">
+                    <div className="flex gap-2 mt-5">
+                      <div className="bg-[#1f2937] px-3 py-2 rounded-xl text-sm border border-[#c9a86a]/10">
                         {quest.category}
                       </div>
 
                       {quest.reward && (
-                        <div className="bg-[#111827] px-3 py-2 rounded-xl text-sm">
+                        <div className="bg-[#1f2937] px-3 py-2 rounded-xl text-sm border border-[#c9a86a]/10">
                           報酬: {quest.reward}
                         </div>
                       )}
@@ -361,12 +366,14 @@ export default function Home() {
                       }
                       className="
                       w-full mt-5
-                      bg-blue-500
-                      hover:bg-blue-400
+                      bg-[#355e8d]
+                      hover:bg-[#446f9f]
+                      border border-[#6e8fb4]
                       text-white
                       font-bold
-                      py-3
+                      py-4
                       rounded-2xl
+                      shadow-lg
                       "
                     >
                       クエスト受注
@@ -381,17 +388,17 @@ export default function Home() {
         {activeTab === "request" && (
           <div
             className="
-            bg-[#0b1220]
-            border border-[#1e293b]
+            bg-[#111827]
+            border border-[#c9a86a]/15
             rounded-3xl
             p-5
             "
           >
-            <p className="text-cyan-300 text-sm mb-1">
+            <p className="text-[#d8c08a] text-sm mb-2">
               New Quest
             </p>
 
-            <h2 className="text-2xl font-bold mb-5">
+            <h2 className="text-3xl font-black mb-6">
               クエスト依頼
             </h2>
 
@@ -404,8 +411,8 @@ export default function Home() {
                 }
                 className="
                 w-full
-                bg-[#111827]
-                border border-[#1e293b]
+                bg-[#1f2937]
+                border border-[#c9a86a]/10
                 rounded-2xl
                 p-4
                 "
@@ -420,8 +427,8 @@ export default function Home() {
                 className="
                 w-full
                 h-32
-                bg-[#111827]
-                border border-[#1e293b]
+                bg-[#1f2937]
+                border border-[#c9a86a]/10
                 rounded-2xl
                 p-4
                 "
@@ -434,8 +441,8 @@ export default function Home() {
                 }
                 className="
                 w-full
-                bg-[#111827]
-                border border-[#1e293b]
+                bg-[#1f2937]
+                border border-[#c9a86a]/10
                 rounded-2xl
                 p-4
                 "
@@ -454,8 +461,8 @@ export default function Home() {
                 }
                 className="
                 w-full
-                bg-[#111827]
-                border border-[#1e293b]
+                bg-[#1f2937]
+                border border-[#c9a86a]/10
                 rounded-2xl
                 p-4
                 "
@@ -465,12 +472,14 @@ export default function Home() {
                 onClick={createQuest}
                 className="
                 w-full
-                bg-blue-500
-                hover:bg-blue-400
+                bg-[#355e8d]
+                hover:bg-[#446f9f]
+                border border-[#6e8fb4]
                 text-white
                 font-bold
                 py-4
                 rounded-2xl
+                shadow-lg
                 "
               >
                 ギルドに依頼する
@@ -502,8 +511,8 @@ export default function Home() {
         >
           <div
             className="
-            bg-[#0b1220]
-            border-t border-[#1e293b]
+            bg-[#111827]
+            border-t border-[#c9a86a]/20
             w-full
             rounded-t-3xl
             p-5
@@ -512,7 +521,7 @@ export default function Home() {
             "
           >
             <div className="flex justify-between items-center mb-5">
-              <h2 className="text-2xl font-bold">
+              <h2 className="text-3xl font-black">
                 完了報告
               </h2>
 
@@ -526,12 +535,12 @@ export default function Home() {
               </button>
             </div>
 
-            <div className="bg-[#111827] rounded-2xl p-4 mb-5">
+            <div className="bg-[#1f2937] rounded-2xl p-4 mb-5 border border-[#c9a86a]/10">
               <p className="text-sm text-gray-400">
                 クエスト
               </p>
 
-              <h3 className="text-xl font-bold mt-1">
+              <h3 className="text-2xl font-bold mt-1">
                 {selectedQuest.title}
               </h3>
 
@@ -541,7 +550,7 @@ export default function Home() {
             </div>
 
             <div className="mb-5">
-              <label className="block mb-2 font-semibold">
+              <label className="block mb-2 font-semibold text-[#d8c08a]">
                 完了証拠画像
               </label>
 
@@ -564,12 +573,14 @@ export default function Home() {
               }
               className="
               w-full
-              bg-blue-500
-              hover:bg-blue-400
+              bg-[#355e8d]
+              hover:bg-[#446f9f]
+              border border-[#6e8fb4]
               text-white
               font-bold
               py-4
               rounded-2xl
+              shadow-lg
               "
             >
               完了報告する
@@ -582,9 +593,9 @@ export default function Home() {
       <div
         className="
         fixed bottom-0 left-0 right-0
-        bg-[#08111f]/95
+        bg-[#0b1425]/95
         backdrop-blur-xl
-        border-t border-[#1e293b]
+        border-t border-[#c9a86a]/10
         px-3 py-4
         "
       >
@@ -635,8 +646,8 @@ function SectionTitle({
   badge?: number;
 }) {
   return (
-    <div className="flex items-center gap-2">
-      <h2 className="text-3xl font-black">
+    <div className="flex items-center gap-3">
+      <h2 className="text-4xl font-black tracking-tight">
         {title}
       </h2>
 
@@ -645,10 +656,11 @@ function SectionTitle({
           className="
           bg-red-500
           text-white
-          w-7 h-7
+          w-8 h-8
           rounded-full
           flex items-center justify-center
           text-sm
+          font-bold
           "
         >
           {badge}
@@ -662,10 +674,10 @@ function EmptyCard({ text }: { text: string }) {
   return (
     <div
       className="
-      bg-[#0b1220]
-      border border-[#1e293b]
+      bg-[#111827]
+      border border-[#c9a86a]/10
       rounded-3xl
-      p-6
+      p-7
       text-center
       text-gray-400
       "
@@ -683,8 +695,8 @@ function SettingCard({
   return (
     <div
       className="
-      bg-[#0b1220]
-      border border-[#1e293b]
+      bg-[#111827]
+      border border-[#c9a86a]/10
       rounded-3xl
       p-5
       "
@@ -715,10 +727,11 @@ function NavButton({
       text-sm
       font-bold
       transition
+      border
       ${
         active
-          ? "bg-blue-500 text-white"
-          : "bg-[#111827] text-gray-300"
+          ? "bg-[#355e8d] border-[#6e8fb4] text-white"
+          : "bg-[#111827] border-[#c9a86a]/10 text-gray-300"
       }
       `}
     >
