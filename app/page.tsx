@@ -62,7 +62,6 @@ const tabs = ["home", "quests", "request", "settings"];
 
 export default function Page() {
   const [activeTab, setActiveTab] = useState("home");
-  const [settingsPage, setSettingsPage] = useState<string | null>(null);
 
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -76,6 +75,9 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
+  const [hunterName, setHunterName] = useState("");
+  const [partnerCode, setPartnerCode] = useState("");
+
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
   const [editingQuest, setEditingQuest] = useState<Quest | null>(null);
   const [reportImage, setReportImage] = useState<File | null>(null);
@@ -88,6 +90,11 @@ export default function Page() {
 
   const myId = user?.id;
   const partnerId = profile?.partner_id;
+
+  const showMessage = (text: string) => {
+    setMessage(text);
+    setTimeout(() => setMessage(""), 3000);
+  };
 
   const generateInviteCode = (userId: string) => {
     return `KAJI-${userId.slice(0, 6).toUpperCase()}`;
@@ -103,10 +110,8 @@ export default function Page() {
       const { data, error } = await supabase.auth.signInAnonymously();
 
       if (error || !data.user) {
-        setMessage(
-          `匿名ログインに失敗しました: ${
-            error?.message || "ユーザー取得失敗"
-          }`
+        showMessage(
+          `匿名ログインに失敗しました: ${error?.message || "ユーザー取得失敗"}`
         );
         setLoading(false);
         return;
@@ -131,7 +136,7 @@ export default function Page() {
 
     const nextProfile = {
       id: currentUser.id,
-      hunter_name: existing?.hunter_name || "テストハンター",
+      hunter_name: existing?.hunter_name || "",
       hr: existing?.hr || 1,
       invite_code: existing?.invite_code || inviteCode,
       partner_id: existing?.partner_id || null,
@@ -144,12 +149,13 @@ export default function Page() {
       .single();
 
     if (error) {
-      setMessage(`プロフィール作成に失敗しました: ${error.message}`);
+      showMessage(`プロフィール作成に失敗しました: ${error.message}`);
       setLoading(false);
       return;
     }
 
     setProfile(data);
+    setHunterName(data.hunter_name || "");
   };
 
   const ensureNotificationSettings = async (userId: string) => {
@@ -227,6 +233,7 @@ export default function Page() {
 
     if (latestProfile) {
       setProfile(latestProfile);
+      setHunterName(latestProfile.hunter_name || "");
       await fetchPartner(latestProfile.partner_id);
     }
 
@@ -322,6 +329,88 @@ export default function Page() {
     ]);
   };
 
+  const saveProfile = async () => {
+    if (!user) return;
+
+    const inviteCode = profile?.invite_code || generateInviteCode(user.id);
+
+    const nextProfile = {
+      id: user.id,
+      hunter_name: hunterName.trim(),
+      hr: profile?.hr || 1,
+      invite_code: inviteCode,
+      partner_id: profile?.partner_id || null,
+    };
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .upsert([nextProfile], { onConflict: "id" })
+      .select()
+      .single();
+
+    if (error) {
+      showMessage(`保存に失敗しました: ${error.message}`);
+      return;
+    }
+
+    setProfile(data);
+    setHunterName(data.hunter_name || "");
+    showMessage("ハンター名を保存しました。");
+    await reloadAll();
+  };
+
+  const linkPartner = async () => {
+    if (!user || !profile) return;
+
+    const code = partnerCode.trim().toUpperCase();
+
+    if (!code) {
+      showMessage("パートナー招待コードを入力してください。");
+      return;
+    }
+
+    if (code === profile.invite_code) {
+      showMessage("自分の招待コードは入力できません。");
+      return;
+    }
+
+    const { data: partner, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("invite_code", code)
+      .maybeSingle();
+
+    if (error || !partner) {
+      showMessage("招待コードが見つかりませんでした。");
+      return;
+    }
+
+    const { error: myError } = await supabase
+      .from("profiles")
+      .update({ partner_id: partner.id })
+      .eq("id", user.id);
+
+    if (myError) {
+      showMessage(`連携に失敗しました: ${myError.message}`);
+      return;
+    }
+
+    const { error: partnerError } = await supabase
+      .from("profiles")
+      .update({ partner_id: user.id })
+      .eq("id", partner.id);
+
+    if (partnerError) {
+      showMessage(`相手側の連携に失敗しました: ${partnerError.message}`);
+      return;
+    }
+
+    setPartnerCode("");
+    setPartnerProfile(partner);
+    showMessage("パートナー連携が完了しました。");
+    await reloadAll();
+  };
+
   const createQuest = async ({
     title,
     description,
@@ -347,7 +436,7 @@ export default function Page() {
     ]);
 
     if (error) {
-      setMessage(`クエスト作成に失敗しました: ${error.message}`);
+      showMessage(`クエスト作成に失敗しました: ${error.message}`);
       return;
     }
 
@@ -362,7 +451,7 @@ export default function Page() {
 
     await reloadAll();
     setActiveTab("home");
-    setMessage("クエストを依頼しました。");
+    showMessage("クエストを依頼しました。");
   };
 
   const acceptQuest = async (quest: AcceptableQuest) => {
@@ -384,13 +473,13 @@ export default function Page() {
       ]);
 
       if (error) {
-        setMessage(`デイリー受注に失敗しました: ${error.message}`);
+        showMessage(`デイリー受注に失敗しました: ${error.message}`);
         return;
       }
 
       await reloadAll();
       setActiveTab("home");
-      setMessage("デイリークエストを受注しました。");
+      showMessage("デイリークエストを受注しました。");
       return;
     }
 
@@ -406,7 +495,7 @@ export default function Page() {
       .eq("id", realQuest.id);
 
     if (error) {
-      setMessage(`受注に失敗しました: ${error.message}`);
+      showMessage(`受注に失敗しました: ${error.message}`);
       return;
     }
 
@@ -419,7 +508,7 @@ export default function Page() {
 
     await reloadAll();
     setActiveTab("home");
-    setMessage("クエストを受注しました。");
+    showMessage("クエストを受注しました。");
   };
 
   const completeQuest = async (questId: string) => {
@@ -469,7 +558,7 @@ export default function Page() {
     setSelectedQuest(null);
     setReportImage(null);
     await reloadAll();
-    setMessage("完了報告を送りました。");
+    showMessage("完了報告を送りました。");
   };
 
   const approveQuest = async (quest: Quest) => {
@@ -489,11 +578,11 @@ export default function Page() {
     );
 
     await reloadAll();
-    setMessage("クエストを承認しました。");
+    showMessage("クエストを承認しました。");
   };
 
   const cancelQuest = async (quest: Quest) => {
-    await supabase
+    const { error } = await supabase
       .from("quests")
       .update({
         status: "cancelled",
@@ -501,8 +590,14 @@ export default function Page() {
       })
       .eq("id", quest.id);
 
+    if (error) {
+      showMessage(`取り下げに失敗しました: ${error.message}`);
+      return;
+    }
+
+    setQuests((prev) => prev.filter((q) => q.id !== quest.id));
     await reloadAll();
-    setMessage("クエストを取り下げました。");
+    showMessage("クエストを取り下げました。");
   };
 
   const updateQuest = async ({
@@ -528,7 +623,7 @@ export default function Page() {
 
     setEditingQuest(null);
     await reloadAll();
-    setMessage("クエスト内容を変更しました。");
+    showMessage("クエスト内容を変更しました。");
   };
 
   const moveTab = (direction: "left" | "right") => {
@@ -544,7 +639,6 @@ export default function Page() {
       setActiveTab(tabs[prevIndex]);
     }
 
-    setSettingsPage(null);
     setDragX(0);
   };
 
@@ -641,14 +735,9 @@ export default function Page() {
         )}
       </div>
 
-      <div
-        className="transition-transform duration-200"
-        style={{
-          transform: `translateX(${dragX}px)`,
-        }}
-      >
+      <div className="transition-transform duration-200" style={{ transform: `translateX(${dragX}px)` }}>
         <TopBar
-          hunterName={profile?.hunter_name || "テストハンター"}
+          hunterName={profile?.hunter_name || "未設定ハンター"}
           hr={profile?.hr || 1}
           unreadCount={unreadCount}
         />
@@ -662,6 +751,27 @@ export default function Page() {
         )}
 
         <div className="mx-auto max-w-md px-4 pt-5">
+          {!profile?.hunter_name && activeTab !== "settings" && (
+            <div className="mb-5 rounded-3xl border border-[#c9a86a]/20 bg-[#111827] p-5 shadow-xl">
+              <p className="text-sm font-bold text-[#d8c08a]">初回設定</p>
+              <h2 className="mt-1 font-title text-2xl font-black">
+                ハンター名を設定しよう
+              </h2>
+              <input
+                value={hunterName}
+                onChange={(e) => setHunterName(e.target.value)}
+                placeholder="例：たくやハンター"
+                className="mt-4 w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 text-sm outline-none"
+              />
+              <button
+                onClick={saveProfile}
+                className="mt-4 w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-3 font-bold text-white"
+              >
+                ハンター登録する
+              </button>
+            </div>
+          )}
+
           {activeTab === "home" && (
             <QuestBoard.Home
               acceptedQuests={acceptedQuests}
@@ -681,25 +791,18 @@ export default function Page() {
           )}
 
           {activeTab === "request" && (
-            <RequestForm
-              onCreate={(quest: CreateQuestInput) => createQuest(quest)}
-            />
+            <RequestForm onCreate={(quest: CreateQuestInput) => createQuest(quest)} />
           )}
 
-          {activeTab === "settings" && user && (
+          {activeTab === "settings" && (
             <SettingsView
-              user={user}
-              profile={profile}
-              setProfile={setProfile}
-              partnerProfile={partnerProfile}
-              setPartnerProfile={setPartnerProfile}
-              settingsPage={settingsPage}
-              setSettingsPage={setSettingsPage}
-              notifications={notifications}
-              notificationSettings={notificationSettings}
-              setNotificationSettings={setNotificationSettings}
-              reloadAll={reloadAll}
-              setMessage={setMessage}
+              hunterName={hunterName}
+              setHunterName={setHunterName}
+              inviteCode={profile?.invite_code || ""}
+              partnerCode={partnerCode}
+              setPartnerCode={setPartnerCode}
+              onSaveProfile={saveProfile}
+              onLinkPartner={linkPartner}
             />
           )}
         </div>
@@ -725,10 +828,7 @@ export default function Page() {
 
       <BottomNav
         activeTab={activeTab}
-        setActiveTab={(tab) => {
-          setActiveTab(tab);
-          setSettingsPage(null);
-        }}
+        setActiveTab={(tab) => setActiveTab(tab)}
         questCount={partnerRecruitingQuests.length}
         requestCount={myRequestQuests.length}
         unreadCount={unreadCount}
@@ -765,13 +865,7 @@ function EditQuestModal({
     const dueAt =
       dueDate && dueTime ? new Date(`${dueDate}T${dueTime}`).toISOString() : null;
 
-    onSubmit({
-      title,
-      description,
-      reward,
-      dueAt,
-      isUrgent,
-    });
+    onSubmit({ title, description, reward, dueAt, isUrgent });
   };
 
   return (
@@ -782,36 +876,11 @@ function EditQuestModal({
             <p className="text-sm font-bold text-[#d8c08a]">Edit Quest</p>
             <h2 className="font-title text-3xl font-black">依頼内容変更</h2>
           </div>
-
           <button
             onClick={onClose}
             className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] text-gray-400"
           >
             ✕
-          </button>
-        </div>
-
-        <div className="mb-4 grid grid-cols-2 gap-3">
-          <button
-            onClick={() => setIsUrgent(false)}
-            className={`rounded-2xl border p-3 font-bold ${
-              !isUrgent
-                ? "border-[#6e8fb4] bg-[#355e8d]"
-                : "border-[#c9a86a]/10 bg-[#1f2937]"
-            }`}
-          >
-            通常
-          </button>
-
-          <button
-            onClick={() => setIsUrgent(true)}
-            className={`rounded-2xl border p-3 font-bold ${
-              isUrgent
-                ? "border-red-300/50 bg-red-700"
-                : "border-[#c9a86a]/10 bg-[#1f2937]"
-            }`}
-          >
-            緊急
           </button>
         </div>
 
@@ -829,34 +898,6 @@ function EditQuestModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="h-20 w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
-            />
-          </InputBlock>
-
-          <div className="grid grid-cols-2 gap-3">
-            <InputBlock label="希望日">
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
-              />
-            </InputBlock>
-
-            <InputBlock label="希望時間">
-              <input
-                type="time"
-                value={dueTime}
-                onChange={(e) => setDueTime(e.target.value)}
-                className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
-              />
-            </InputBlock>
-          </div>
-
-          <InputBlock label="報酬">
-            <input
-              value={reward}
-              onChange={(e) => setReward(e.target.value)}
-              className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
             />
           </InputBlock>
 
