@@ -56,12 +56,7 @@ type CreateQuestInput = {
   isUrgent: boolean;
 };
 
-type AcceptableQuest =
-  | Quest
-  | {
-      id: string;
-      title: string;
-    };
+type AcceptableQuest = Quest | { id: string; title: string };
 
 const tabs = ["home", "quests", "request", "settings"];
 
@@ -87,6 +82,9 @@ export default function Page() {
 
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const [dragX, setDragX] = useState(0);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const myId = user?.id;
   const partnerId = profile?.partner_id;
@@ -334,7 +332,7 @@ export default function Page() {
       {
         title,
         description,
-        category: null,
+        category: "依頼",
         reward,
         due_at: dueAt,
         status: "recruiting",
@@ -372,7 +370,7 @@ export default function Page() {
         {
           title: quest.title,
           description: "毎日クエストから受注",
-          category: null,
+          category: "毎日",
           reward: "日常ポイント",
           status: "accepted",
           is_urgent: false,
@@ -532,19 +530,19 @@ export default function Page() {
 
   const moveTab = (direction: "left" | "right") => {
     const currentIndex = tabs.indexOf(activeTab);
-    if (currentIndex === -1) return;
 
     if (direction === "left") {
-      const next = tabs[Math.min(currentIndex + 1, tabs.length - 1)];
-      setActiveTab(next);
-      setSettingsPage(null);
+      const nextIndex = (currentIndex + 1) % tabs.length;
+      setActiveTab(tabs[nextIndex]);
     }
 
     if (direction === "right") {
-      const prev = tabs[Math.max(currentIndex - 1, 0)];
-      setActiveTab(prev);
-      setSettingsPage(null);
+      const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+      setActiveTab(tabs[prevIndex]);
     }
+
+    setSettingsPage(null);
+    setDragX(0);
   };
 
   const handleTouchStart = (e: React.TouchEvent<HTMLElement>) => {
@@ -554,7 +552,26 @@ export default function Page() {
     setTouchStartY(e.touches[0].clientY);
   };
 
-  const handleTouchEnd = (e: React.TouchEvent<HTMLElement>) => {
+  const handleTouchMove = (e: React.TouchEvent<HTMLElement>) => {
+    if (selectedQuest || editingQuest) return;
+    if (touchStartX === null || touchStartY === null) return;
+
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+
+    const diffX = currentX - touchStartX;
+    const diffY = currentY - touchStartY;
+
+    if (Math.abs(diffX) > Math.abs(diffY)) {
+      setDragX(diffX * 0.35);
+    }
+
+    if (window.scrollY <= 0 && diffY > 0 && Math.abs(diffY) > Math.abs(diffX)) {
+      setPullDistance(Math.min(diffY * 0.5, 120));
+    }
+  };
+
+  const handleTouchEnd = async (e: React.TouchEvent<HTMLElement>) => {
     if (selectedQuest || editingQuest) return;
     if (touchStartX === null || touchStartY === null) return;
 
@@ -564,11 +581,24 @@ export default function Page() {
     const diffX = touchStartX - endX;
     const diffY = touchStartY - endY;
 
-    if (Math.abs(diffX) > 90 && Math.abs(diffX) > Math.abs(diffY) * 1.4) {
+    if (Math.abs(diffX) > 80 && Math.abs(diffX) > Math.abs(diffY)) {
       if (diffX > 0) moveTab("left");
       if (diffX < 0) moveTab("right");
     }
 
+    if (pullDistance > 90) {
+      setIsRefreshing(true);
+      await reloadAll();
+
+      setTimeout(() => {
+        setIsRefreshing(false);
+        setPullDistance(0);
+      }, 700);
+    } else {
+      setPullDistance(0);
+    }
+
+    setDragX(0);
     setTouchStartX(null);
     setTouchStartY(null);
   };
@@ -587,62 +617,89 @@ export default function Page() {
   return (
     <main
       onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className="min-h-screen bg-[#07111f] pb-32 text-white"
+      className="min-h-screen overflow-x-hidden bg-[#07111f] pb-32 text-white"
     >
-      <TopBar
-        hunterName={profile?.hunter_name || "テストハンター"}
-        hr={profile?.hr || 1}
-        unreadCount={unreadCount}
-      />
-
-      {message && (
-        <div className="mx-auto max-w-md px-4 pt-4">
-          <div className="rounded-2xl border border-[#c9a86a]/20 bg-[#111827] p-3 text-sm text-[#d8c08a]">
-            {message}
+      <div
+        className="flex items-center justify-center overflow-hidden text-sm font-bold text-[#d8c08a] transition-all duration-300"
+        style={{
+          height: `${pullDistance}px`,
+          opacity: pullDistance > 20 || isRefreshing ? 1 : 0,
+        }}
+      >
+        {isRefreshing ? (
+          <div className="flex items-center gap-3">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#d8c08a] border-t-transparent" />
+            更新中...
           </div>
+        ) : (
+          "↓ 引っ張って更新"
+        )}
+      </div>
+
+      <div
+        className="transition-transform duration-200"
+        style={{
+          transform: `translateX(${dragX}px)`,
+        }}
+      >
+        <TopBar
+          hunterName={profile?.hunter_name || "テストハンター"}
+          hr={profile?.hr || 1}
+          unreadCount={unreadCount}
+        />
+
+        {message && (
+          <div className="mx-auto max-w-md px-4 pt-4">
+            <div className="rounded-2xl border border-[#c9a86a]/20 bg-[#111827] p-3 text-sm text-[#d8c08a]">
+              {message}
+            </div>
+          </div>
+        )}
+
+        <div className="mx-auto max-w-md px-4 pt-5">
+          {activeTab === "home" && (
+            <QuestBoard.Home
+              acceptedQuests={acceptedQuests}
+              myRequestQuests={myRequestQuests}
+              onReport={(quest: Quest) => setSelectedQuest(quest)}
+              onApprove={(quest: Quest) => approveQuest(quest)}
+              onEdit={(quest: Quest) => setEditingQuest(quest)}
+              onCancel={(quest: Quest) => cancelQuest(quest)}
+            />
+          )}
+
+          {activeTab === "quests" && (
+            <QuestBoard.Board
+              partnerQuests={partnerRecruitingQuests}
+              onAccept={(quest: AcceptableQuest) => acceptQuest(quest)}
+            />
+          )}
+
+          {activeTab === "request" && (
+            <RequestForm
+              onCreate={(quest: CreateQuestInput) => createQuest(quest)}
+            />
+          )}
+
+          {activeTab === "settings" && user && (
+            <SettingsView
+              user={user}
+              profile={profile}
+              setProfile={setProfile}
+              partnerProfile={partnerProfile}
+              setPartnerProfile={setPartnerProfile}
+              settingsPage={settingsPage}
+              setSettingsPage={setSettingsPage}
+              notifications={notifications}
+              notificationSettings={notificationSettings}
+              setNotificationSettings={setNotificationSettings}
+              reloadAll={reloadAll}
+              setMessage={setMessage}
+            />
+          )}
         </div>
-      )}
-
-      <div className="mx-auto max-w-md px-4 pt-5">
-        {activeTab === "home" && (
-          <QuestBoard.Home
-            acceptedQuests={acceptedQuests}
-            myRequestQuests={myRequestQuests}
-            onReport={(quest: Quest) => setSelectedQuest(quest)}
-            onApprove={(quest: Quest) => approveQuest(quest)}
-            onEdit={(quest: Quest) => setEditingQuest(quest)}
-            onCancel={(quest: Quest) => cancelQuest(quest)}
-          />
-        )}
-
-        {activeTab === "quests" && (
-          <QuestBoard.Board
-            partnerQuests={partnerRecruitingQuests}
-            onAccept={(quest) => acceptQuest(quest)}
-          />
-        )}
-
-        {activeTab === "request" && (
-          <RequestForm onCreate={(quest: CreateQuestInput) => createQuest(quest)} />
-        )}
-
-        {activeTab === "settings" && user && (
-          <SettingsView
-            user={user}
-            profile={profile}
-            setProfile={setProfile}
-            partnerProfile={partnerProfile}
-            setPartnerProfile={setPartnerProfile}
-            settingsPage={settingsPage}
-            setSettingsPage={setSettingsPage}
-            notifications={notifications}
-            notificationSettings={notificationSettings}
-            setNotificationSettings={setNotificationSettings}
-            reloadAll={reloadAll}
-            setMessage={setMessage}
-          />
-        )}
       </div>
 
       {selectedQuest && (
