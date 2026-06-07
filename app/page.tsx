@@ -279,7 +279,10 @@ export default function Page() {
   const myRequestQuests = useMemo(
     () =>
       visibleQuests.filter(
-        (q) => q.created_by === myId && q.status !== "completed"
+        (q) =>
+          q.created_by === myId &&
+          q.accepted_by !== myId &&
+          q.status !== "completed"
       ),
     [visibleQuests, myId]
   );
