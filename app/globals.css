@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 html {
   background: #07111f;
@@ -12,16 +10,15 @@ body {
   background:
     radial-gradient(circle at top, #13233d 0%, #07111f 45%),
     #07111f;
-
   color: white;
-  font-family: var(--font-noto);
+  font-family: var(--font-noto), sans-serif;
 }
 
 h1,
 h2,
 h3,
 .font-title {
-  font-family: var(--font-orbitron);
+  font-family: var(--font-orbitron), var(--font-noto), sans-serif;
   letter-spacing: 0.03em;
 }
 
