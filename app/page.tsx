@@ -43,6 +43,14 @@ type Notification = {
   created_at: string | null;
 };
 
+type NotificationSettings = {
+  user_id: string;
+  quest_created: boolean;
+  quest_accepted: boolean;
+  quest_reported: boolean;
+  quest_approved: boolean;
+};
+
 export default function Page() {
   const [activeTab, setActiveTab] = useState("home");
   const [settingsPage, setSettingsPage] = useState<string | null>(null);
@@ -53,6 +61,9 @@ export default function Page() {
 
   const [quests, setQuests] = useState<Quest[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notificationSettings, setNotificationSettings] =
+    useState<NotificationSettings | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
@@ -70,6 +81,10 @@ export default function Page() {
   const myId = user?.id;
   const partnerId = profile?.partner_id;
 
+  const generateInviteCode = (userId: string) => {
+    return `KAJI-${userId.slice(0, 6).toUpperCase()}`;
+  };
+
   const initAuth = async () => {
     setLoading(true);
 
@@ -80,7 +95,9 @@ export default function Page() {
       const { data, error } = await supabase.auth.signInAnonymously();
 
       if (error) {
-        setMessage("匿名ログインに失敗しました。SupabaseのAnonymous Sign-InsをONにしてください。");
+        setMessage(
+          "匿名ログインに失敗しました。SupabaseのAnonymous Sign-InsをONにしてください。"
+        );
         setLoading(false);
         return;
       }
@@ -96,13 +113,12 @@ export default function Page() {
 
     setUser(currentUser);
     await ensureProfile(currentUser);
-  };
-
-  const generateInviteCode = (userId: string) => {
-    return `KAJI-${userId.slice(0, 6).toUpperCase()}`;
+    await ensureNotificationSettings(currentUser.id);
   };
 
   const ensureProfile = async (currentUser: User) => {
+    const inviteCode = generateInviteCode(currentUser.id);
+
     const { data: existing } = await supabase
       .from("profiles")
       .select("*")
@@ -110,8 +126,26 @@ export default function Page() {
       .maybeSingle();
 
     if (existing) {
-      setProfile(existing);
-      setHunterName(existing.hunter_name || "テストハンター");
+      const fixedProfile = {
+        ...existing,
+        hunter_name: existing.hunter_name || "テストハンター",
+        hr: existing.hr || 1,
+        invite_code: existing.invite_code || inviteCode,
+      };
+
+      if (!existing.invite_code || !existing.hunter_name || !existing.hr) {
+        await supabase
+          .from("profiles")
+          .update({
+            hunter_name: fixedProfile.hunter_name,
+            hr: fixedProfile.hr,
+            invite_code: fixedProfile.invite_code,
+          })
+          .eq("id", currentUser.id);
+      }
+
+      setProfile(fixedProfile);
+      setHunterName(fixedProfile.hunter_name || "テストハンター");
       return;
     }
 
@@ -119,23 +153,52 @@ export default function Page() {
       id: currentUser.id,
       hunter_name: "テストハンター",
       hr: 1,
-      invite_code: generateInviteCode(currentUser.id),
+      invite_code: inviteCode,
       partner_id: null,
     };
 
     const { data, error } = await supabase
       .from("profiles")
-      .insert([newProfile])
+      .upsert([newProfile])
       .select()
       .single();
 
     if (error) {
-      setMessage("プロフィール作成に失敗しました。profilesテーブルのidカラムを確認してください。");
+      setMessage("プロフィール作成に失敗しました。profilesのRLSを確認してください。");
       return;
     }
 
     setProfile(data);
     setHunterName(data.hunter_name || "テストハンター");
+  };
+
+  const ensureNotificationSettings = async (userId: string) => {
+    const defaultSettings = {
+      user_id: userId,
+      quest_created: true,
+      quest_accepted: true,
+      quest_reported: true,
+      quest_approved: true,
+    };
+
+    const { data: existing } = await supabase
+      .from("notification_settings")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (existing) {
+      setNotificationSettings(existing);
+      return;
+    }
+
+    const { data } = await supabase
+      .from("notification_settings")
+      .upsert([defaultSettings])
+      .select()
+      .single();
+
+    setNotificationSettings(data || defaultSettings);
   };
 
   const fetchPartner = async (partnerProfileId?: string | null) => {
@@ -172,6 +235,16 @@ export default function Page() {
     setNotifications(data || []);
   };
 
+  const fetchNotificationSettings = async (userId: string) => {
+    const { data } = await supabase
+      .from("notification_settings")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (data) setNotificationSettings(data);
+  };
+
   const reloadAll = async () => {
     if (!user) return;
 
@@ -189,6 +262,7 @@ export default function Page() {
 
     await fetchQuests();
     await fetchNotifications(user.id);
+    await fetchNotificationSettings(user.id);
     setLoading(false);
   };
 
@@ -224,17 +298,18 @@ export default function Page() {
   );
 
   const acceptedQuests = useMemo(
-    () => visibleQuests.filter((q) => q.status === "accepted" && q.accepted_by === myId),
-    [visibleQuests, myId]
-  );
-
-  const waitingQuests = useMemo(
-    () => visibleQuests.filter((q) => q.status === "waiting_confirm" && q.created_by === myId),
+    () =>
+      visibleQuests.filter(
+        (q) => q.status === "accepted" && q.accepted_by === myId
+      ),
     [visibleQuests, myId]
   );
 
   const myRequestQuests = useMemo(
-    () => visibleQuests.filter((q) => q.created_by === myId && q.status !== "completed"),
+    () =>
+      visibleQuests.filter(
+        (q) => q.created_by === myId && q.status !== "completed"
+      ),
     [visibleQuests, myId]
   );
 
@@ -245,10 +320,23 @@ export default function Page() {
 
   const createNotification = async (
     userId: string | null | undefined,
+    type:
+      | "quest_created"
+      | "quest_accepted"
+      | "quest_reported"
+      | "quest_approved",
     title: string,
     message: string
   ) => {
     if (!userId) return;
+
+    const { data: settings } = await supabase
+      .from("notification_settings")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (settings && settings[type] === false) return;
 
     await supabase.from("notifications").insert([
       {
@@ -261,23 +349,31 @@ export default function Page() {
   };
 
   const saveProfile = async () => {
-    if (!user || !profile) return;
+    if (!user) return;
+
+    const inviteCode = profile?.invite_code || generateInviteCode(user.id);
 
     const { data, error } = await supabase
       .from("profiles")
-      .update({
-        hunter_name: hunterName.trim() || "テストハンター",
-      })
-      .eq("id", user.id)
+      .upsert([
+        {
+          id: user.id,
+          hunter_name: hunterName.trim() || "テストハンター",
+          hr: profile?.hr || 1,
+          invite_code: inviteCode,
+          partner_id: profile?.partner_id || null,
+        },
+      ])
       .select()
       .single();
 
     if (error) {
-      setMessage("プロフィール保存に失敗しました。");
+      setMessage("プロフィール保存に失敗しました。profilesのRLSを確認してください。");
       return;
     }
 
     setProfile(data);
+    setHunterName(data.hunter_name || "テストハンター");
     setMessage("プロフィールを保存しました。");
   };
 
@@ -296,22 +392,30 @@ export default function Page() {
       return;
     }
 
-    const { data: partner, error } = await supabase
+    const { data: partner } = await supabase
       .from("profiles")
       .select("*")
       .eq("invite_code", code)
       .maybeSingle();
 
-    if (error || !partner) {
+    if (!partner) {
       setMessage("招待コードが見つかりませんでした。");
       return;
     }
 
-    await supabase.from("profiles").update({ partner_id: partner.id }).eq("id", user.id);
-    await supabase.from("profiles").update({ partner_id: user.id }).eq("id", partner.id);
+    await supabase
+      .from("profiles")
+      .update({ partner_id: partner.id })
+      .eq("id", user.id);
+
+    await supabase
+      .from("profiles")
+      .update({ partner_id: user.id })
+      .eq("id", partner.id);
 
     await createNotification(
       partner.id,
+      "quest_created",
       "ギルド連携完了",
       `${profile.hunter_name || "相手"} とペアになりました。`
     );
@@ -320,8 +424,7 @@ export default function Page() {
     setMessage("パートナー連携が完了しました。");
     await reloadAll();
   };
-
-  const createQuest = async () => {
+    const createQuest = async () => {
     if (!user || !title.trim()) return;
 
     await supabase.from("quests").insert([
@@ -341,6 +444,7 @@ export default function Page() {
     if (partnerId) {
       await createNotification(
         partnerId,
+        "quest_created",
         "新しいクエスト",
         `${title} が依頼されました。`
       );
@@ -366,6 +470,7 @@ export default function Page() {
 
     await createNotification(
       quest.created_by,
+      "quest_accepted",
       "クエスト受注",
       `${quest.title} が受注されました。`
     );
@@ -410,6 +515,7 @@ export default function Page() {
 
     await createNotification(
       selectedQuest.created_by,
+      "quest_reported",
       "完了報告",
       `${selectedQuest.title} の完了報告が届きました。`
     );
@@ -420,10 +526,14 @@ export default function Page() {
   };
 
   const approveQuest = async (quest: Quest) => {
-    await supabase.from("quests").update({ status: "completed" }).eq("id", quest.id);
+    await supabase
+      .from("quests")
+      .update({ status: "completed" })
+      .eq("id", quest.id);
 
     await createNotification(
       quest.accepted_by,
+      "quest_approved",
       "達成承認",
       `${quest.title} が承認されました。`
     );
@@ -440,6 +550,33 @@ export default function Page() {
       .eq("user_id", user.id);
 
     await reloadAll();
+  };
+
+  const toggleNotificationSetting = async (
+    key:
+      | "quest_created"
+      | "quest_accepted"
+      | "quest_reported"
+      | "quest_approved"
+  ) => {
+    if (!user || !notificationSettings) return;
+
+    const updated = {
+      ...notificationSettings,
+      [key]: !notificationSettings[key],
+    };
+
+    setNotificationSettings(updated);
+
+    await supabase
+      .from("notification_settings")
+      .update({
+        [key]: updated[key],
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", user.id);
+
+    await fetchNotificationSettings(user.id);
   };
 
   if (loading) {
@@ -472,16 +609,6 @@ export default function Page() {
       <div className="mx-auto max-w-md px-4 pt-5">
         {activeTab === "home" && (
           <div className="space-y-6">
-            <section className="rounded-3xl border border-[#c9a86a]/15 bg-[#111827] p-5 shadow-xl">
-              <p className="text-sm text-[#d8c08a]">Guild Status</p>
-              <h2 className="mt-1 font-title text-2xl font-black">ギルド情報</h2>
-
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <InfoBox label="自分" value={profile?.hunter_name || "未設定"} />
-                <InfoBox label="パートナー" value={partnerProfile?.hunter_name || "未連携"} />
-              </div>
-            </section>
-
             <section className="space-y-3">
               <SectionTitle title="受注中クエスト" badge={acceptedQuests.length} />
 
@@ -501,19 +628,31 @@ export default function Page() {
             </section>
 
             <section className="space-y-3">
-              <SectionTitle title="確認待ち" badge={waitingQuests.length} />
+              <SectionTitle title="依頼中クエスト" badge={myRequestQuests.length} />
 
-              {waitingQuests.length === 0 && (
-                <EmptyCard text="確認待ちクエストはありません" />
+              {myRequestQuests.length === 0 && (
+                <EmptyCard text="依頼中クエストはありません" />
               )}
 
-              {waitingQuests.map((quest) => (
+              {myRequestQuests.map((quest) => (
                 <CompactQuestCard
                   key={quest.id}
                   quest={quest}
-                  statusText="完了確認待ち"
-                  actionLabel="承認"
-                  onAction={() => approveQuest(quest)}
+                  statusText={
+                    quest.status === "recruiting"
+                      ? "募集中"
+                      : quest.status === "accepted"
+                      ? "進行中"
+                      : "完了確認待ち"
+                  }
+                  actionLabel={
+                    quest.status === "waiting_confirm" ? "承認" : "確認"
+                  }
+                  onAction={() => {
+                    if (quest.status === "waiting_confirm") {
+                      approveQuest(quest);
+                    }
+                  }}
                 />
               ))}
             </section>
@@ -534,28 +673,6 @@ export default function Page() {
                 quest={quest}
                 buttonLabel="クエスト受注"
                 onClick={() => acceptQuest(quest)}
-              />
-            ))}
-
-            <SectionTitle title="自分の依頼" badge={myRequestQuests.length} />
-
-            {myRequestQuests.length === 0 && (
-              <EmptyCard text="自分の依頼中クエストはありません" />
-            )}
-
-            {myRequestQuests.map((quest) => (
-              <QuestCard
-                key={quest.id}
-                quest={quest}
-                buttonLabel={
-                  quest.status === "recruiting"
-                    ? "募集中"
-                    : quest.status === "accepted"
-                    ? "進行中"
-                    : "確認待ち"
-                }
-                onClick={() => {}}
-                disabled
               />
             ))}
           </section>
@@ -628,6 +745,8 @@ export default function Page() {
             saveProfile={saveProfile}
             connectPartner={connectPartner}
             notifications={notifications}
+            notificationSettings={notificationSettings}
+            toggleNotificationSetting={toggleNotificationSetting}
             markAllNotificationsRead={markAllNotificationsRead}
           />
         )}
@@ -650,7 +769,7 @@ export default function Page() {
           setSettingsPage(null);
         }}
         recruitingCount={recruitingQuests.length}
-        waitingCount={waitingQuests.length}
+        waitingCount={myRequestQuests.length}
         unreadCount={unreadCount}
       />
     </main>
@@ -709,6 +828,8 @@ function SettingsView({
   saveProfile,
   connectPartner,
   notifications,
+  notificationSettings,
+  toggleNotificationSetting,
   markAllNotificationsRead,
 }: {
   settingsPage: string | null;
@@ -722,6 +843,14 @@ function SettingsView({
   saveProfile: () => void;
   connectPartner: () => void;
   notifications: Notification[];
+  notificationSettings: NotificationSettings | null;
+  toggleNotificationSetting: (
+    key:
+      | "quest_created"
+      | "quest_accepted"
+      | "quest_reported"
+      | "quest_approved"
+  ) => void;
   markAllNotificationsRead: () => void;
 }) {
   if (settingsPage === "account") {
@@ -785,15 +914,47 @@ function SettingsView({
 
   if (settingsPage === "notifications") {
     return (
-      <SettingsPanel title="通知" onBack={() => setSettingsPage(null)}>
+      <SettingsPanel title="通知設定" onBack={() => setSettingsPage(null)}>
+        <div className="space-y-3">
+          <NotificationToggle
+            title="新しいクエスト"
+            description="相手がクエストを依頼した時に通知する"
+            enabled={notificationSettings?.quest_created ?? true}
+            onClick={() => toggleNotificationSetting("quest_created")}
+          />
+
+          <NotificationToggle
+            title="クエスト受注"
+            description="自分の依頼が受注された時に通知する"
+            enabled={notificationSettings?.quest_accepted ?? true}
+            onClick={() => toggleNotificationSetting("quest_accepted")}
+          />
+
+          <NotificationToggle
+            title="完了報告"
+            description="相手から完了報告が届いた時に通知する"
+            enabled={notificationSettings?.quest_reported ?? true}
+            onClick={() => toggleNotificationSetting("quest_reported")}
+          />
+
+          <NotificationToggle
+            title="達成承認"
+            description="自分の報告が承認された時に通知する"
+            enabled={notificationSettings?.quest_approved ?? true}
+            onClick={() => toggleNotificationSetting("quest_approved")}
+          />
+        </div>
+
         <button
           onClick={markAllNotificationsRead}
-          className="mb-4 w-full rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937] py-3 text-sm font-bold text-[#d8c08a]"
+          className="mt-5 w-full rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937] py-3 text-sm font-bold text-[#d8c08a]"
         >
           すべて既読にする
         </button>
 
-        <div className="space-y-3">
+        <div className="mt-5 space-y-3">
+          <h3 className="font-title text-xl font-black">通知履歴</h3>
+
           {notifications.length === 0 && <EmptyCard text="通知はありません" />}
 
           {notifications.map((notification) => (
@@ -855,7 +1016,7 @@ function SettingsView({
       <SettingCard
         icon={<Bell />}
         title="通知設定"
-        description="クエスト・報告・承認通知"
+        description="通知条件・ON/OFF・履歴"
         onClick={() => setSettingsPage("notifications")}
       />
       <SettingCard
@@ -865,6 +1026,40 @@ function SettingsView({
         onClick={() => setSettingsPage("terms")}
       />
     </section>
+  );
+}
+
+function NotificationToggle({
+  title,
+  description,
+  enabled,
+  onClick,
+}: {
+  title: string;
+  description: string;
+  enabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center justify-between gap-4 rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 text-left"
+    >
+      <div>
+        <h3 className="font-bold">{title}</h3>
+        <p className="mt-1 text-sm text-gray-400">{description}</p>
+      </div>
+
+      <div
+        className={`flex h-8 w-16 items-center rounded-full border p-1 ${
+          enabled
+            ? "justify-end border-[#6e8fb4] bg-[#355e8d]"
+            : "justify-start border-gray-600 bg-gray-700"
+        }`}
+      >
+        <div className="h-6 w-6 rounded-full bg-white" />
+      </div>
+    </button>
   );
 }
 
@@ -906,12 +1101,10 @@ function QuestCard({
   quest,
   buttonLabel,
   onClick,
-  disabled,
 }: {
   quest: Quest;
   buttonLabel: string;
   onClick: () => void;
-  disabled?: boolean;
 }) {
   return (
     <div className="rounded-3xl border border-[#c9a86a]/15 bg-[#111827] p-5 shadow-xl">
@@ -942,12 +1135,7 @@ function QuestCard({
 
       <button
         onClick={onClick}
-        disabled={disabled}
-        className={`mt-5 w-full rounded-2xl border py-4 font-bold text-white shadow-lg ${
-          disabled
-            ? "border-[#c9a86a]/10 bg-[#1f2937] text-gray-400"
-            : "border-[#6e8fb4] bg-[#355e8d]"
-        }`}
+        className="mt-5 w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-4 font-bold text-white shadow-lg"
       >
         {buttonLabel}
       </button>
@@ -987,15 +1175,6 @@ function EmptyCard({ text }: { text: string }) {
   return (
     <div className="rounded-3xl border border-[#c9a86a]/10 bg-[#111827] p-7 text-center text-gray-400">
       {text}
-    </div>
-  );
-}
-
-function InfoBox({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4">
-      <p className="text-xs text-gray-400">{label}</p>
-      <p className="mt-1 truncate font-bold">{value}</p>
     </div>
   );
 }
