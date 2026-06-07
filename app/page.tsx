@@ -321,7 +321,7 @@ export default function Page() {
   }) => {
     if (!user || !title.trim()) return;
 
-    await supabase.from("quests").insert([
+    const { error } = await supabase.from("quests").insert([
       {
         title,
         description,
@@ -335,6 +335,11 @@ export default function Page() {
         pair_id: partnerId || null,
       },
     ]);
+
+    if (error) {
+      setMessage(`クエスト作成に失敗しました: ${error.message}`);
+      return;
+    }
 
     if (partnerId) {
       await createNotification(
@@ -361,7 +366,7 @@ export default function Page() {
     if (!user) return;
 
     if (quest.id.startsWith("daily-")) {
-      await supabase.from("quests").insert([
+      const { error } = await supabase.from("quests").insert([
         {
           title: quest.title,
           description: "毎日クエストから受注",
@@ -375,6 +380,11 @@ export default function Page() {
         },
       ]);
 
+      if (error) {
+        setMessage(`デイリー受注に失敗しました: ${error.message}`);
+        return;
+      }
+
       await reloadAll();
       setActiveTab("home");
       setMessage("デイリークエストを受注しました。");
@@ -383,7 +393,7 @@ export default function Page() {
 
     const realQuest = quest as Quest;
 
-    await supabase
+    const { error } = await supabase
       .from("quests")
       .update({
         status: "accepted",
@@ -391,6 +401,11 @@ export default function Page() {
         updated_at: new Date().toISOString(),
       })
       .eq("id", realQuest.id);
+
+    if (error) {
+      setMessage(`受注に失敗しました: ${error.message}`);
+      return;
+    }
 
     await createNotification(
       realQuest.created_by,
@@ -537,11 +552,14 @@ export default function Page() {
   };
 
   const handleTouchStart = (e: React.TouchEvent<HTMLElement>) => {
+    if (selectedQuest || editingQuest) return;
+
     setTouchStartX(e.touches[0].clientX);
     setTouchStartY(e.touches[0].clientY);
   };
 
-  const handleTouchEnd = async (e: React.TouchEvent<HTMLElement>) => {
+  const handleTouchEnd = (e: React.TouchEvent<HTMLElement>) => {
+    if (selectedQuest || editingQuest) return;
     if (touchStartX === null || touchStartY === null) return;
 
     const endX = e.changedTouches[0].clientX;
@@ -550,12 +568,7 @@ export default function Page() {
     const diffX = touchStartX - endX;
     const diffY = touchStartY - endY;
 
-    if (Math.abs(diffY) > 90 && diffY < 0 && window.scrollY < 20) {
-      await reloadAll();
-      setMessage("最新のクエストを取得しました。");
-    }
-
-    if (Math.abs(diffX) > 80 && Math.abs(diffX) > Math.abs(diffY)) {
+    if (Math.abs(diffX) > 90 && Math.abs(diffX) > Math.abs(diffY) * 1.4) {
       if (diffX > 0) moveTab("left");
       if (diffX < 0) moveTab("right");
     }
@@ -716,9 +729,9 @@ function EditQuestModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-black/70 backdrop-blur-sm">
-      <div className="mx-auto max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-3xl border-t border-[#c9a86a]/20 bg-[#111827] p-5 shadow-2xl">
-        <div className="mb-5 flex items-start justify-between gap-3">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden bg-black/70 px-4 pb-28 pt-8 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-3xl border border-[#c9a86a]/20 bg-[#111827] p-4 shadow-2xl">
+        <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <p className="text-sm font-bold text-[#d8c08a]">Edit Quest</p>
             <h2 className="font-title text-3xl font-black">依頼内容変更</h2>
@@ -732,7 +745,7 @@ function EditQuestModal({
           </button>
         </div>
 
-        <div className="mb-5 grid grid-cols-2 gap-3">
+        <div className="mb-4 grid grid-cols-2 gap-3">
           <button
             onClick={() => setIsUrgent(false)}
             className={`rounded-2xl border p-3 font-bold ${
@@ -756,12 +769,12 @@ function EditQuestModal({
           </button>
         </div>
 
-        <div className="space-y-5">
+        <div className="space-y-3">
           <InputBlock label="クエスト名">
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none"
+              className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
             />
           </InputBlock>
 
@@ -769,39 +782,41 @@ function EditQuestModal({
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="h-28 w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none"
+              className="h-20 w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
             />
           </InputBlock>
 
-          <InputBlock label="希望日">
-            <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none"
-            />
-          </InputBlock>
+          <div className="grid grid-cols-2 gap-3">
+            <InputBlock label="希望日">
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
+              />
+            </InputBlock>
 
-          <InputBlock label="希望時間">
-            <input
-              type="time"
-              value={dueTime}
-              onChange={(e) => setDueTime(e.target.value)}
-              className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none"
-            />
-          </InputBlock>
+            <InputBlock label="希望時間">
+              <input
+                type="time"
+                value={dueTime}
+                onChange={(e) => setDueTime(e.target.value)}
+                className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
+              />
+            </InputBlock>
+          </div>
 
           <InputBlock label="報酬">
             <input
               value={reward}
               onChange={(e) => setReward(e.target.value)}
-              className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none"
+              className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
             />
           </InputBlock>
 
           <button
             onClick={submit}
-            className="w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-4 font-bold text-white shadow-lg"
+            className="w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-3 font-bold text-white shadow-lg"
           >
             変更を保存する
           </button>
@@ -820,7 +835,7 @@ function InputBlock({
 }) {
   return (
     <label className="block">
-      <p className="mb-2 text-sm font-bold text-[#d8c08a]">{label}</p>
+      <p className="mb-1 text-sm font-bold text-[#d8c08a]">{label}</p>
       {children}
     </label>
   );
