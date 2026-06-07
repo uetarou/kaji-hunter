@@ -80,31 +80,17 @@ export default function Page() {
   const [editingQuest, setEditingQuest] = useState<Quest | null>(null);
   const [reportImage, setReportImage] = useState<File | null>(null);
 
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [initialHunterName, setInitialHunterName] = useState("");
+
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [dragX, setDragX] = useState(0);
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const [showNameModal, setShowNameModal] = useState(false);
-  const [initialHunterName, setInitialHunterName] = useState("");
-
   const myId = user?.id;
   const partnerId = profile?.partner_id;
-
-  const generateInviteCode = (userId: string) => {
-    return userId.slice(0, 8).toUpperCase();
-  };
-
-  useEffect(() => {
-    initAuth();
-  }, []);
-
-  useEffect(() => {
-    if (user && profile) {
-      reloadAll();
-    }
-  }, [user, profile?.id]);
 
   useEffect(() => {
     if (!message) return;
@@ -116,13 +102,9 @@ export default function Page() {
     return () => clearTimeout(timer);
   }, [message]);
 
-  useEffect(() => {
-    if (!profile) return;
-
-    if (!profile.hunter_name || profile.hunter_name === "テストハンター") {
-      setShowNameModal(true);
-    }
-  }, [profile?.id]);
+  const generateInviteCode = (userId: string) => {
+    return userId.slice(0, 8).toUpperCase();
+  };
 
   const initAuth = async () => {
     setLoading(true);
@@ -134,7 +116,11 @@ export default function Page() {
       const { data, error } = await supabase.auth.signInAnonymously();
 
       if (error || !data.user) {
-        setMessage(`匿名ログインに失敗しました: ${error?.message || "ユーザー取得失敗"}`);
+        setMessage(
+          `匿名ログインに失敗しました: ${
+            error?.message || "ユーザー取得失敗"
+          }`
+        );
         setLoading(false);
         return;
       }
@@ -156,9 +142,12 @@ export default function Page() {
       .eq("id", currentUser.id)
       .maybeSingle();
 
+    const isNewUser = !existing;
+    const currentHunterName = existing?.hunter_name || "テストハンター";
+
     const nextProfile = {
       id: currentUser.id,
-      hunter_name: existing?.hunter_name || "テストハンター",
+      hunter_name: currentHunterName,
       hr: existing?.hr || 1,
       invite_code: existing?.invite_code || inviteCode,
       partner_id: existing?.partner_id || null,
@@ -177,6 +166,11 @@ export default function Page() {
     }
 
     setProfile(data);
+
+    if (isNewUser || data.hunter_name === "テストハンター") {
+      setInitialHunterName("");
+      setShowNameModal(true);
+    }
   };
 
   const ensureNotificationSettings = async (userId: string) => {
@@ -264,6 +258,16 @@ export default function Page() {
     setLoading(false);
   };
 
+  useEffect(() => {
+    initAuth();
+  }, []);
+
+  useEffect(() => {
+    if (user && profile) {
+      reloadAll();
+    }
+  }, [user, profile?.id]);
+
   const visibleQuests = useMemo(() => {
     if (!myId) return [];
 
@@ -339,8 +343,8 @@ export default function Page() {
     ]);
   };
 
-  const saveInitialHunterName = async () => {
-    if (!user || !profile) return;
+  const saveInitialName = async () => {
+    if (!user) return;
 
     const name = initialHunterName.trim();
 
@@ -350,9 +354,11 @@ export default function Page() {
     }
 
     const nextProfile = {
-      ...profile,
+      id: user.id,
       hunter_name: name,
-      invite_code: profile.invite_code || generateInviteCode(user.id),
+      hr: profile?.hr || 1,
+      invite_code: profile?.invite_code || generateInviteCode(user.id),
+      partner_id: profile?.partner_id || null,
     };
 
     const { data, error } = await supabase
@@ -427,7 +433,7 @@ export default function Page() {
           reward: "日常ポイント",
           status: "accepted",
           is_urgent: false,
-          created_by: partnerId || null,
+          created_by: partnerId || user.id,
           accepted_by: user.id,
           pair_id: partnerId || null,
         },
@@ -543,8 +549,6 @@ export default function Page() {
   };
 
   const cancelQuest = async (quest: Quest) => {
-    setQuests((prev) => prev.filter((q) => q.id !== quest.id));
-
     const { error } = await supabase
       .from("quests")
       .update({
@@ -555,10 +559,10 @@ export default function Page() {
 
     if (error) {
       setMessage(`取り下げに失敗しました: ${error.message}`);
-      await reloadAll();
       return;
     }
 
+    setQuests((current) => current.filter((q) => q.id !== quest.id));
     setMessage("クエストを取り下げました。");
     await reloadAll();
   };
@@ -572,7 +576,7 @@ export default function Page() {
   }: CreateQuestInput) => {
     if (!editingQuest) return;
 
-    await supabase
+    const { error } = await supabase
       .from("quests")
       .update({
         title,
@@ -583,6 +587,11 @@ export default function Page() {
         updated_at: new Date().toISOString(),
       })
       .eq("id", editingQuest.id);
+
+    if (error) {
+      setMessage(`変更に失敗しました: ${error.message}`);
+      return;
+    }
 
     setEditingQuest(null);
     await reloadAll();
@@ -784,8 +793,8 @@ export default function Page() {
       {showNameModal && (
         <InitialNameModal
           value={initialHunterName}
-          onChange={setInitialHunterName}
-          onSubmit={saveInitialHunterName}
+          setValue={setInitialHunterName}
+          onSubmit={saveInitialName}
         />
       )}
 
@@ -800,42 +809,6 @@ export default function Page() {
         unreadCount={unreadCount}
       />
     </main>
-  );
-}
-
-function InitialNameModal({
-  value,
-  onChange,
-  onSubmit,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  onSubmit: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-3xl border border-[#c9a86a]/20 bg-[#111827] p-5 shadow-2xl">
-        <p className="text-sm font-bold text-[#d8c08a]">Hunter Register</p>
-        <h2 className="mt-2 font-title text-3xl font-black">ハンター名登録</h2>
-        <p className="mt-3 text-sm leading-6 text-gray-400">
-          最初にアプリ内で表示する名前を決めてください。
-        </p>
-
-        <input
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="例：タクヤハンター"
-          className="mt-5 w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none"
-        />
-
-        <button
-          onClick={onSubmit}
-          className="mt-5 w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-4 font-bold text-white"
-        >
-          狩猟生活をはじめる
-        </button>
-      </div>
-    </div>
   );
 }
 
@@ -877,7 +850,7 @@ function EditQuestModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden bg-black/70 px-4 pb-28 pt-8 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 pb-36 pt-6 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-3xl border border-[#c9a86a]/20 bg-[#111827] p-4 shadow-2xl">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
@@ -934,25 +907,23 @@ function EditQuestModal({
             />
           </InputBlock>
 
-          <div className="grid grid-cols-2 gap-3">
-            <InputBlock label="希望日">
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
-              />
-            </InputBlock>
+          <InputBlock label="希望日">
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
+            />
+          </InputBlock>
 
-            <InputBlock label="希望時間">
-              <input
-                type="time"
-                value={dueTime}
-                onChange={(e) => setDueTime(e.target.value)}
-                className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
-              />
-            </InputBlock>
-          </div>
+          <InputBlock label="希望時間">
+            <input
+              type="time"
+              value={dueTime}
+              onChange={(e) => setDueTime(e.target.value)}
+              className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
+            />
+          </InputBlock>
 
           <InputBlock label="報酬">
             <input
@@ -969,6 +940,45 @@ function EditQuestModal({
             変更を保存する
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function InitialNameModal({
+  value,
+  setValue,
+  onSubmit,
+}: {
+  value: string;
+  setValue: (value: string) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-3xl border border-[#c9a86a]/20 bg-[#111827] p-5 shadow-2xl">
+        <p className="text-sm font-bold text-[#d8c08a]">Hunter Entry</p>
+        <h2 className="mt-2 font-title text-3xl font-black">
+          ハンター名を登録
+        </h2>
+
+        <p className="mt-3 text-sm leading-6 text-gray-400">
+          最初にアプリで使う名前を入力してください。
+        </p>
+
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="例：たくやハンター"
+          className="mt-5 w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none"
+        />
+
+        <button
+          onClick={onSubmit}
+          className="mt-5 w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-4 font-bold text-white"
+        >
+          冒険を始める
+        </button>
       </div>
     </div>
   );
