@@ -106,6 +106,11 @@ export default function Page() {
     return userId.slice(0, 8).toUpperCase();
   };
 
+  const isFromModal = (target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return false;
+    return !!target.closest('[data-modal="true"]');
+  };
+
   const initAuth = async () => {
     setLoading(true);
 
@@ -616,14 +621,19 @@ export default function Page() {
   };
 
   const handleTouchStart = (e: React.TouchEvent<HTMLElement>) => {
-    if (selectedQuest || editingQuest || showNameModal) return;
+    if (selectedQuest || editingQuest || showNameModal || isFromModal(e.target)) {
+      return;
+    }
 
     setTouchStartX(e.touches[0].clientX);
     setTouchStartY(e.touches[0].clientY);
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLElement>) => {
-    if (selectedQuest || editingQuest || showNameModal) return;
+    if (selectedQuest || editingQuest || showNameModal || isFromModal(e.target)) {
+      return;
+    }
+
     if (touchStartX === null || touchStartY === null) return;
 
     const currentX = e.touches[0].clientX;
@@ -642,15 +652,19 @@ export default function Page() {
   };
 
   const handleTouchEnd = async (e: React.TouchEvent<HTMLElement>) => {
-    if (selectedQuest || editingQuest || showNameModal) return;
+    if (selectedQuest || editingQuest || showNameModal || isFromModal(e.target)) {
+      return;
+    }
+
     if (touchStartX === null || touchStartY === null) return;
 
     const endX = e.changedTouches[0].clientX;
     const endY = e.changedTouches[0].clientY;
 
     const diffX = touchStartX - endX;
+    const diffY = touchStartY - endY;
 
-    if (Math.abs(diffX) > 80) {
+    if (Math.abs(diffX) > 80 && Math.abs(diffX) > Math.abs(diffY)) {
       if (diffX > 0) moveTab("left");
       if (diffX < 0) moveTab("right");
     }
@@ -847,7 +861,10 @@ function EditQuestModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 pb-36 pt-20 backdrop-blur-sm">
+    <div
+      data-modal="true"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 pb-52 pt-12 backdrop-blur-sm"
+    >
       <div className="w-full max-w-md rounded-3xl border border-[#c9a86a]/20 bg-[#111827] p-4 shadow-2xl">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
@@ -932,7 +949,7 @@ function EditQuestModal({
 
           <button
             onClick={submit}
-            className="mb-8 w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-3 font-bold text-white shadow-lg"
+            className="mb-10 w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-3 font-bold text-white shadow-lg"
           >
             変更を保存する
           </button>
@@ -952,7 +969,10 @@ function InitialNameModal({
   onSubmit: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm">
+    <div
+      data-modal="true"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm"
+    >
       <div className="w-full max-w-md rounded-3xl border border-[#c9a86a]/20 bg-[#111827] p-5 shadow-2xl">
         <p className="text-sm font-bold text-[#d8c08a]">Hunter Entry</p>
         <h2 className="mt-2 font-title text-3xl font-black">
