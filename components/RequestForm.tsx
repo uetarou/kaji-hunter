@@ -148,9 +148,9 @@ function RequestModal({
 
   return (
     <div className="fixed inset-0 z-[999] bg-black/75 backdrop-blur-sm">
-      <div className="fixed left-2 right-2 top-[112px] bottom-[118px]">
+      <div className="mx-auto flex h-[100dvh] w-full max-w-md flex-col px-2 pb-[calc(env(safe-area-inset-bottom)+90px)] pt-[calc(env(safe-area-inset-top)+118px)]">
         <div
-          className={`relative mx-auto flex h-full w-full max-w-md flex-col overflow-hidden rounded-[32px] border bg-gradient-to-b from-[#111827] via-[#0b1425] to-[#07111f] shadow-[0_0_50px_rgba(0,0,0,0.8)] ${
+          className={`relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[32px] border bg-gradient-to-b from-[#111827] via-[#0b1425] to-[#07111f] shadow-[0_0_50px_rgba(0,0,0,0.8)] ${
             isUrgent ? "border-red-300/35" : "border-[#c9a86a]/35"
           }`}
         >

@@ -28,8 +28,8 @@ export function BottomNav({
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#c9a86a]/15 bg-[#07111f]/95 backdrop-blur">
-      <div className="mx-auto grid max-w-md grid-cols-4 gap-2 px-3 pb-5 pt-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#c9a86a]/15 bg-[#07111f]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+      <div className="mx-auto grid max-w-md grid-cols-4 gap-2 px-3 pb-2 pt-2">
         {tabs.map((tab) => {
           const active = activeTab === tab.key;
           const badge = getBadgeCount(tab.key);
@@ -38,7 +38,7 @@ export function BottomNav({
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`relative flex h-[72px] flex-col items-center justify-center rounded-2xl border text-xs font-bold shadow-lg ${
+              className={`relative flex h-[68px] flex-col items-center justify-center rounded-2xl border text-xs font-bold shadow-lg ${
                 active
                   ? "border-[#8eb8f5] bg-[#426da0] text-white"
                   : "border-[#c9a86a]/10 bg-[#111827] text-[#d8c08a]"
