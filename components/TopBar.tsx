@@ -2,10 +2,12 @@ export function TopBar({
   hunterName,
   hr,
   unreadCount,
+  partnerName,
 }: {
   hunterName: string;
   hr: number;
   unreadCount: number;
+  partnerName?: string | null;
 }) {
   return (
     <header className="fixed left-0 right-0 top-0 z-50 border-b border-[#c9a86a]/30 bg-gradient-to-r from-[#0b1425] via-[#13233d] to-[#0d1a30] shadow-2xl">
@@ -20,12 +22,22 @@ export function TopBar({
               Kaji Hunter
             </h1>
 
-            <div className="mt-1 flex items-center gap-2">
-              <p className="max-w-[120px] truncate text-sm text-[#d8c08a]">
+            <div className="mt-1 flex max-w-[250px] items-center gap-2 text-sm">
+              <p className="truncate text-[#d8c08a]">
                 {hunterName}
               </p>
-              <div className="h-1 w-1 rounded-full bg-[#d8c08a]" />
-              <p className="text-sm font-bold text-slate-100">HR {hr}</p>
+
+              {partnerName && (
+                <>
+                  <span className="text-[#d8c08a]">×</span>
+                  <p className="truncate text-emerald-200">
+                    {partnerName}
+                  </p>
+                </>
+              )}
+
+              <span className="text-[#d8c08a]">・</span>
+              <p className="shrink-0 font-bold text-slate-100">HR {hr}</p>
             </div>
           </div>
         </div>

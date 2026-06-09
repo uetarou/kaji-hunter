@@ -25,9 +25,7 @@ export function RequestForm({ onCreate, onModalOpenChange }: Props) {
   return (
     <section className="space-y-5">
       <div className="rounded-3xl border border-[#c9a86a]/20 bg-gradient-to-br from-[#111827] to-[#07111f] p-5 shadow-2xl">
-        <p className="text-sm font-bold text-[#d8c08a]">
-          Guild Request Counter
-        </p>
+        <p className="text-sm font-bold text-[#d8c08a]">Guild Request Counter</p>
         <h2 className="mt-1 font-title text-3xl font-black">クエスト依頼</h2>
       </div>
 
@@ -138,13 +136,13 @@ function RequestModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/70 px-4 pb-[92px] pt-[112px] backdrop-blur-sm">
+    <div className="fixed left-0 right-0 top-[112px] bottom-[104px] z-[100] bg-black/70 px-4 py-3 backdrop-blur-sm">
       <div
         className={`mx-auto flex h-full w-full max-w-md flex-col overflow-hidden rounded-3xl border bg-[#111827] shadow-2xl ${
           isUrgent ? "border-red-300/30" : "border-[#c9a86a]/20"
         }`}
       >
-        <div className="shrink-0 border-b border-[#c9a86a]/10 p-3">
+        <div className="shrink-0 border-b border-[#c9a86a]/10 px-4 py-3">
           <div className="flex items-start justify-between gap-3">
             <div>
               <span
@@ -171,14 +169,14 @@ function RequestModal({
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
-          <div className="space-y-3">
+        <div className="min-h-0 flex-1 px-4 py-3">
+          <div className="space-y-2">
             <InputBlock label="クエスト名">
               <input
                 placeholder="例：お風呂掃除"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
+                className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] px-3 py-2 text-sm outline-none"
               />
             </InputBlock>
 
@@ -187,17 +185,17 @@ function RequestModal({
                 placeholder="例：浴槽と排水口までお願い！"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="h-20 w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
+                className="h-16 w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] px-3 py-2 text-sm outline-none"
               />
             </InputBlock>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <InputBlock label="希望日">
                 <input
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
+                  className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] px-2 py-2 text-xs outline-none"
                 />
               </InputBlock>
 
@@ -206,7 +204,7 @@ function RequestModal({
                   type="time"
                   value={dueTime}
                   onChange={(e) => setDueTime(e.target.value)}
-                  className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
+                  className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] px-2 py-2 text-xs outline-none"
                 />
               </InputBlock>
             </div>
@@ -216,7 +214,7 @@ function RequestModal({
                 placeholder="例：プリン / 肩もみ"
                 value={reward}
                 onChange={(e) => setReward(e.target.value)}
-                className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
+                className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] px-3 py-2 text-sm outline-none"
               />
             </InputBlock>
           </div>

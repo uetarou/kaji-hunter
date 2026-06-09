@@ -516,7 +516,7 @@ export default function Page() {
         )}
       </div>
 
-      <TopBar hunterName={profile?.hunter_name || "テストハンター"} hr={profile?.hr || 1} unreadCount={unreadCount} />
+      <TopBar hunterName={profile?.hunter_name || "テストハンター"} partnerName={partnerProfile?.hunter_name || null} hr={profile?.hr || 1} unreadCount={unreadCount}/>
 
       <div className="transition-transform duration-200" style={{ transform: `translateX(${dragX}px)` }}>
         <div className="mx-auto max-w-md px-4 pt-[125px]">
