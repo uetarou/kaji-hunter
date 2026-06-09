@@ -138,7 +138,7 @@ function RequestModal({
   };
 
   return (
-    <div className="fixed left-0 right-0 top-[112px] bottom-[92px] z-[100] bg-black/75 px-2 backdrop-blur-sm">
+    <div className="fixed left-0 right-0 top-[112px] bottom-[18px] z-[100] bg-black/75 px-2 backdrop-blur-sm">
       <div
         className={`relative mx-auto flex h-full w-full max-w-md flex-col overflow-hidden rounded-[28px] border bg-gradient-to-b from-[#111827] via-[#0b1425] to-[#07111f] shadow-[0_0_40px_rgba(0,0,0,0.7)] ${
           isUrgent ? "border-red-300/35" : "border-[#c9a86a]/35"
