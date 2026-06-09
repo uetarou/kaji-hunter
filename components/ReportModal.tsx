@@ -16,9 +16,9 @@ export function ReportModal({
   onSubmit: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-hidden bg-black/70 px-4 pb-28 pt-8 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-3xl border border-[#c9a86a]/20 bg-[#111827] p-4 shadow-2xl">
-        <div className="mb-4 flex items-start justify-between gap-3">
+    <div className="fixed inset-0 z-50 flex items-end bg-black/70 backdrop-blur-sm">
+      <div className="mx-auto w-full max-w-md rounded-t-3xl border-t border-[#c9a86a]/20 bg-[#111827] p-5">
+        <div className="mb-5 flex items-center justify-between">
           <div>
             <p className="text-sm font-bold text-[#d8c08a]">Quest Report</p>
             <h2 className="font-title text-3xl font-black">完了報告</h2>
@@ -32,23 +32,23 @@ export function ReportModal({
           </button>
         </div>
 
-        <div className="mb-4 rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4">
-          <p className="text-xs font-bold text-[#d8c08a]">クエスト</p>
-          <h3 className="mt-2 text-2xl font-black">{quest.title}</h3>
+        <div className="mb-5 rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4">
+          <p className="text-sm text-gray-400">クエスト</p>
+          <h3 className="mt-1 text-2xl font-bold">{quest.title}</h3>
 
           {quest.description && (
-            <p className="mt-2 text-sm leading-6 text-gray-400">
+            <p className="mt-3 text-sm leading-6 text-gray-400">
               {quest.description}
             </p>
           )}
         </div>
 
-        <div className="mb-4">
-          <p className="mb-2 text-sm font-bold text-[#d8c08a]">
+        <div className="mb-5">
+          <label className="mb-2 block font-semibold text-[#d8c08a]">
             完了証拠画像
-          </p>
+          </label>
 
-          <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-[#c9a86a]/30 bg-[#1f2937] p-5 text-center">
+          <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-[#c9a86a]/30 bg-[#1f2937] p-6 text-center">
             <span className="text-sm font-bold">画像を選択する</span>
             <span className="mt-1 text-xs text-gray-400">
               カメラ撮影・写真選択どちらもOK
@@ -72,9 +72,9 @@ export function ReportModal({
 
         <button
           onClick={onSubmit}
-          className="w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-3 font-bold text-white shadow-lg"
+          className="w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-4 font-bold text-white shadow-lg"
         >
-          完了報告する
+          ギルドへ完了報告する
         </button>
       </div>
     </div>

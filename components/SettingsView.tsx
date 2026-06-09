@@ -6,6 +6,16 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Notification, NotificationSettings, Profile } from "@/app/page";
 
+type PartnerRequest = {
+  id: string;
+  requester_id: string;
+  receiver_id: string;
+  status: "pending" | "accepted" | "rejected" | "cancelled";
+  created_at: string | null;
+  requester?: Profile | null;
+  receiver?: Profile | null;
+};
+
 export function SettingsView({
   user,
   profile,
@@ -37,12 +47,78 @@ export function SettingsView({
     profile?.hunter_name || "テストハンター"
   );
   const [partnerCode, setPartnerCode] = useState("");
+  const [incomingRequests, setIncomingRequests] = useState<PartnerRequest[]>([]);
+  const [outgoingRequests, setOutgoingRequests] = useState<PartnerRequest[]>([]);
 
   useEffect(() => {
     setHunterName(profile?.hunter_name || "テストハンター");
   }, [profile?.hunter_name]);
 
+  useEffect(() => {
+    if (settingsPage === "partner") {
+      fetchPartnerRequests();
+    }
+  }, [settingsPage, user.id]);
+
   const generateInviteCode = (userId: string) => userId.slice(0, 8).toUpperCase();
+
+  const createNotification = async (
+    userId: string,
+    title: string,
+    message: string
+  ) => {
+    await supabase.from("notifications").insert([
+      {
+        user_id: userId,
+        title,
+        message,
+        is_read: false,
+      },
+    ]);
+  };
+
+  const fetchPartnerRequests = async () => {
+    const { data: incoming } = await supabase
+      .from("partner_requests")
+      .select("*")
+      .eq("receiver_id", user.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+
+    const { data: outgoing } = await supabase
+      .from("partner_requests")
+      .select("*")
+      .eq("requester_id", user.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+
+    const requesterIds = (incoming || []).map((r) => r.requester_id);
+    const receiverIds = (outgoing || []).map((r) => r.receiver_id);
+    const ids = Array.from(new Set([...requesterIds, ...receiverIds]));
+
+    let profiles: Profile[] = [];
+
+    if (ids.length > 0) {
+      const { data } = await supabase.from("profiles").select("*").in("id", ids);
+      profiles = data || [];
+    }
+
+    const findProfile = (id: string) => profiles.find((p) => p.id === id) || null;
+
+    setIncomingRequests(
+      (incoming || []).map((request) => ({
+        ...request,
+        requester: findProfile(request.requester_id),
+      }))
+    );
+
+    setOutgoingRequests(
+      (outgoing || []).map((request) => ({
+        ...request,
+        receiver: findProfile(request.receiver_id),
+      }))
+    );
+  };
 
   const saveProfile = async () => {
     const nextProfile = {
@@ -105,7 +181,7 @@ export function SettingsView({
     setMessage("招待コードをコピーしました。");
   };
 
-  const connectPartner = async () => {
+  const sendPartnerRequest = async () => {
     const myCode = await ensureInviteCode();
     const code = partnerCode.trim().toUpperCase();
 
@@ -130,34 +206,113 @@ export function SettingsView({
       return;
     }
 
+    if (profile?.partner_id || partner.partner_id) {
+      setMessage("どちらかが既にパートナー連携済みです。");
+      return;
+    }
+
+    const { data: existing } = await supabase
+      .from("partner_requests")
+      .select("*")
+      .eq("requester_id", user.id)
+      .eq("receiver_id", partner.id)
+      .eq("status", "pending")
+      .maybeSingle();
+
+    if (existing) {
+      setMessage("すでに申請中です。");
+      return;
+    }
+
+    const { error } = await supabase.from("partner_requests").insert([
+      {
+        requester_id: user.id,
+        receiver_id: partner.id,
+        status: "pending",
+      },
+    ]);
+
+    if (error) {
+      setMessage(`申請に失敗しました: ${error.message}`);
+      return;
+    }
+
+    await createNotification(
+      partner.id,
+      "パートナー申請",
+      `${profile?.hunter_name || "ハンター"} からパートナー申請が届きました。`
+    );
+
+    setPartnerCode("");
+    setMessage("パートナー申請を送りました。");
+    await fetchPartnerRequests();
+  };
+
+  const approvePartnerRequest = async (request: PartnerRequest) => {
     const { error: myError } = await supabase
       .from("profiles")
-      .update({ partner_id: partner.id })
+      .update({ partner_id: request.requester_id })
       .eq("id", user.id);
 
     if (myError) {
-      setMessage(`自分側の連携に失敗しました: ${myError.message}`);
+      setMessage(`承認に失敗しました: ${myError.message}`);
       return;
     }
 
     const { error: partnerError } = await supabase
       .from("profiles")
       .update({ partner_id: user.id })
-      .eq("id", partner.id);
+      .eq("id", request.requester_id);
 
     if (partnerError) {
       setMessage(`相手側の連携に失敗しました: ${partnerError.message}`);
       return;
     }
 
-    setPartnerProfile(partner);
-    setPartnerCode("");
-    setMessage("パートナー連携が完了しました。");
+    await supabase
+      .from("partner_requests")
+      .update({ status: "accepted" })
+      .eq("id", request.id);
+
+    await createNotification(
+      request.requester_id,
+      "パートナー承認",
+      `${profile?.hunter_name || "ハンター"} がパートナー申請を承認しました。`
+    );
+
+    setMessage("パートナー申請を承認しました。");
+    await fetchPartnerRequests();
     await reloadAll();
   };
 
+  const rejectPartnerRequest = async (request: PartnerRequest) => {
+    await supabase
+      .from("partner_requests")
+      .update({ status: "rejected" })
+      .eq("id", request.id);
+
+    await createNotification(
+      request.requester_id,
+      "パートナー申請却下",
+      `${profile?.hunter_name || "ハンター"} がパートナー申請を見送りました。`
+    );
+
+    setMessage("パートナー申請を却下しました。");
+    await fetchPartnerRequests();
+  };
+
+  const cancelPartnerRequest = async (request: PartnerRequest) => {
+    await supabase
+      .from("partner_requests")
+      .update({ status: "cancelled" })
+      .eq("id", request.id);
+
+    setMessage("パートナー申請を取り消しました。");
+    await fetchPartnerRequests();
+  };
+
   const disconnectPartner = async () => {
-    const currentPartnerId = profile?.partner_id;
+    const currentPartnerId = profile?.partner_id || partnerProfile?.id;
 
     const { error: myError } = await supabase
       .from("profiles")
@@ -174,6 +329,12 @@ export function SettingsView({
         .from("profiles")
         .update({ partner_id: null })
         .eq("id", currentPartnerId);
+
+      await createNotification(
+        currentPartnerId,
+        "パートナー解除",
+        `${profile?.hunter_name || "ハンター"} がパートナー連携を解除しました。`
+      );
     }
 
     setPartnerProfile(null);
@@ -284,6 +445,67 @@ export function SettingsView({
           </p>
         </div>
 
+        {incomingRequests.length > 0 && (
+          <div className="mt-4 space-y-3">
+            <h3 className="font-title text-xl font-black text-[#d8c08a]">
+              承認待ち
+            </h3>
+
+            {incomingRequests.map((request) => (
+              <div
+                key={request.id}
+                className="rounded-2xl border border-emerald-300/20 bg-emerald-900/20 p-4"
+              >
+                <p className="font-bold">
+                  {request.requester?.hunter_name || "ハンター"} から申請
+                </p>
+
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => approvePartnerRequest(request)}
+                    className="rounded-2xl border border-emerald-300/30 bg-emerald-700 py-3 font-bold"
+                  >
+                    承認
+                  </button>
+
+                  <button
+                    onClick={() => rejectPartnerRequest(request)}
+                    className="rounded-2xl border border-red-300/30 bg-red-900/50 py-3 font-bold text-red-100"
+                  >
+                    却下
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {outgoingRequests.length > 0 && (
+          <div className="mt-4 space-y-3">
+            <h3 className="font-title text-xl font-black text-[#d8c08a]">
+              申請中
+            </h3>
+
+            {outgoingRequests.map((request) => (
+              <div
+                key={request.id}
+                className="rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4"
+              >
+                <p className="font-bold">
+                  {request.receiver?.hunter_name || "ハンター"} に申請中
+                </p>
+
+                <button
+                  onClick={() => cancelPartnerRequest(request)}
+                  className="mt-3 w-full rounded-2xl border border-red-300/30 bg-red-900/50 py-3 font-bold text-red-100"
+                >
+                  申請を取り消す
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <label className="mt-4 block">
           <p className="mb-2 text-sm font-bold text-[#d8c08a]">
             パートナー招待コード
@@ -297,10 +519,10 @@ export function SettingsView({
         </label>
 
         <button
-          onClick={connectPartner}
+          onClick={sendPartnerRequest}
           className="mt-4 w-full rounded-2xl border border-emerald-300/30 bg-emerald-700 py-4 font-bold"
         >
-          パートナーと連携する
+          パートナー申請を送る
         </button>
 
         {(profile?.partner_id || partnerProfile?.id) && (
