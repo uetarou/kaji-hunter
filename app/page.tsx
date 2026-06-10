@@ -278,7 +278,20 @@ export default function Page() {
       .eq("user_id", userId)
       .maybeSingle();
     if (settings && settings[type] === false) return;
-    await supabase.from("notifications").insert([{ user_id: userId, title, message, is_read: false }]);
+
+    await supabase.from("notifications").insert([
+      { user_id: userId, title, message, is_read: false },
+    ]);
+
+    try {
+      await fetch("/api/send-push", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, title, message }),
+      });
+    } catch {
+      // アプリ内通知は保存済みなので、Push送信失敗だけでは止めない
+    }
   };
 
   const saveInitialName = async () => {
@@ -516,7 +529,12 @@ export default function Page() {
         )}
       </div>
 
-      <TopBar hunterName={profile?.hunter_name || "テストハンター"} partnerName={partnerProfile?.hunter_name || null} hr={profile?.hr || 1} unreadCount={unreadCount}/>
+      <TopBar
+          hunterName={profile?.hunter_name || "テストハンター"}
+          partnerName={partnerProfile?.hunter_name || null}
+          hr={profile?.hr || 1}
+          unreadCount={unreadCount}
+        />
 
       <div className="transition-transform duration-200" style={{ transform: `translateX(${dragX}px)` }}>
         <div className="mx-auto max-w-md px-4 pt-[125px]">

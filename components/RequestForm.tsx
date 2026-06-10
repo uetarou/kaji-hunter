@@ -30,10 +30,8 @@ export function RequestForm({ onCreate, onModalOpenChange }: Props) {
 
   return (
     <section className="space-y-5">
-      <div className="rounded-3xl border border-[#c9a86a]/20 bg-gradient-to-br from-[#111827] to-[#07111f] p-5 shadow-2xl">
-        <p className="text-sm font-bold text-[#d8c08a]">
-          Guild Request Counter
-        </p>
+      <div className="px-1">
+        <p className="text-sm font-bold text-[#d8c08a]">Guild Request Counter</p>
         <h2 className="mt-1 font-title text-3xl font-black">クエスト依頼</h2>
       </div>
 
@@ -93,14 +91,14 @@ function RequestTypeButton({
       className={`rounded-3xl border p-5 text-left shadow-xl ${
         isUrgent
           ? "border-red-300/30 bg-gradient-to-br from-[#2a1115] to-[#111827]"
-          : "border-[#6e8fb4]/30 bg-gradient-to-br from-[#0b1c33] to-[#111827]"
+          : "border-emerald-300/30 bg-gradient-to-br from-[#0d261c] to-[#111827]"
       }`}
     >
       <span
         className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${
           isUrgent
             ? "border-red-300/40 bg-red-500/20 text-red-100"
-            : "border-[#6e8fb4]/50 bg-[#355e8d]/30 text-blue-100"
+            : "border-emerald-300/40 bg-emerald-500/15 text-emerald-100"
         }`}
       >
         {label}
@@ -133,9 +131,7 @@ function RequestModal({
     if (!title.trim()) return;
 
     const dueAt =
-      dueDate && dueTime
-        ? new Date(`${dueDate}T${dueTime}`).toISOString()
-        : null;
+      dueDate && dueTime ? new Date(`${dueDate}T${dueTime}`).toISOString() : null;
 
     onCreate({
       title,
@@ -148,7 +144,7 @@ function RequestModal({
 
   return (
     <div className="fixed inset-0 z-[999] bg-black/75 backdrop-blur-sm">
-      <div className="mx-auto flex h-[100dvh] w-full max-w-md flex-col px-2 pb-[calc(env(safe-area-inset-bottom)+90px)] pt-[calc(env(safe-area-inset-top)+118px)]">
+      <div className="mx-auto flex h-[100dvh] w-full max-w-md flex-col px-2 pb-[calc(env(safe-area-inset-bottom)+82px)] pt-[calc(env(safe-area-inset-top)+108px)]">
         <div
           className={`relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[32px] border bg-gradient-to-b from-[#111827] via-[#0b1425] to-[#07111f] shadow-[0_0_50px_rgba(0,0,0,0.8)] ${
             isUrgent ? "border-red-300/35" : "border-[#c9a86a]/35"
@@ -166,7 +162,7 @@ function RequestModal({
                   className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-black tracking-wide ${
                     isUrgent
                       ? "border-red-300/50 bg-red-500/20 text-red-100"
-                      : "border-[#6e8fb4]/60 bg-[#355e8d]/30 text-blue-100"
+                      : "border-emerald-300/50 bg-emerald-500/15 text-emerald-100"
                   }`}
                 >
                   {isUrgent ? "URGENT QUEST" : "NORMAL QUEST"}
@@ -186,7 +182,7 @@ function RequestModal({
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 px-5 py-4">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
             <div className="space-y-3">
               <InputBlock label="クエスト名">
                 <input
@@ -206,13 +202,13 @@ function RequestModal({
                 />
               </InputBlock>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <InputBlock label="希望日">
                   <input
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937]/90 px-3 py-3 text-xs outline-none"
+                    className="min-w-0 w-full rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937]/90 px-4 py-3 text-sm outline-none"
                   />
                 </InputBlock>
 
@@ -221,7 +217,7 @@ function RequestModal({
                     type="time"
                     value={dueTime}
                     onChange={(e) => setDueTime(e.target.value)}
-                    className="w-full rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937]/90 px-3 py-3 text-xs outline-none"
+                    className="min-w-0 w-full rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937]/90 px-4 py-3 text-sm outline-none"
                   />
                 </InputBlock>
               </div>
@@ -247,7 +243,7 @@ function RequestModal({
               className={`relative w-full overflow-hidden rounded-2xl border py-4 text-base font-black text-white shadow-2xl ${
                 isUrgent
                   ? "border-red-300/60 bg-gradient-to-r from-red-900 to-red-700"
-                  : "border-[#c9a86a]/70 bg-gradient-to-r from-[#16315f] via-[#355e8d] to-[#16315f]"
+                  : "border-emerald-300/60 bg-gradient-to-r from-[#0f3b2c] via-[#17704f] to-[#0f3b2c]"
               }`}
             >
               <span className="absolute inset-x-4 top-1 h-px bg-white/40" />
@@ -268,7 +264,7 @@ function InputBlock({
   children: React.ReactNode;
 }) {
   return (
-    <label className="block">
+    <label className="block min-w-0">
       <p className="mb-1 text-xs font-black text-[#d8c08a]">{label}</p>
       {children}
     </label>
@@ -293,7 +289,5 @@ function Corner({
       ? "bottom-2 left-2 rounded-bl-2xl border-b-2 border-l-2"
       : "bottom-2 right-2 rounded-br-2xl border-b-2 border-r-2";
 
-  return (
-    <div className={`pointer-events-none absolute h-8 w-8 ${pos} ${base}`} />
-  );
+  return <div className={`pointer-events-none absolute h-8 w-8 ${pos} ${base}`} />;
 }

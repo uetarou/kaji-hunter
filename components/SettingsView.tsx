@@ -4,6 +4,7 @@ import { Bell, ChevronLeft, Copy, Shield, UserRound, Users } from "lucide-react"
 import type { User } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { PushNotificationButton } from "@/components/PushNotificationButton";
 import type { Notification, NotificationSettings, Profile } from "@/app/page";
 
 type PartnerRequest = {
@@ -540,6 +541,10 @@ export function SettingsView({
   if (settingsPage === "notifications") {
     return (
       <SettingsPanel title="通知設定" onBack={() => setSettingsPage(null)}>
+        <div className="mb-5">
+          <PushNotificationButton userId={user.id} setMessage={setMessage} />
+        </div>
+
         <div className="space-y-3">
           <NotificationToggle
             title="新しいクエスト"
@@ -612,7 +617,7 @@ export function SettingsView({
 
   return (
     <section className="space-y-4">
-      <div className="rounded-3xl border border-[#c9a86a]/15 bg-[#111827] p-5 shadow-xl">
+      <div className="px-1">
         <p className="text-sm font-bold text-[#d8c08a]">Hunter Settings</p>
         <h2 className="mt-1 font-title text-3xl font-black">設定</h2>
       </div>

@@ -98,10 +98,7 @@ function Board({
 
   return (
     <section className="space-y-4">
-      <div className="rounded-3xl border border-[#c9a86a]/20 bg-gradient-to-br from-[#111827] to-[#07111f] p-5 shadow-2xl">
-        <p className="text-sm font-bold text-[#d8c08a]">Guild Quest Board</p>
-        <h2 className="mt-1 font-title text-3xl font-black">クエストボード</h2>
-      </div>
+      <SectionTitle title="クエストボード" badge={boardQuests.length} />
 
       <div className="space-y-3">
         {boardQuests.map((quest) => (
@@ -127,6 +124,70 @@ function Board({
   );
 }
 
+function HomeQuestCard({
+  quest,
+  statusText,
+  primaryLabel,
+  secondaryLabel,
+  onPrimary,
+  onSecondary,
+}: {
+  quest: Quest;
+  statusText: string;
+  primaryLabel: string;
+  secondaryLabel: string;
+  onPrimary: () => void;
+  onSecondary: () => void;
+}) {
+  return (
+    <div className="rounded-3xl border border-[#c9a86a]/15 bg-[#111827] p-4 shadow-xl">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h3 className="truncate text-xl font-black">{quest.title}</h3>
+
+            <span className="rounded-full border border-[#6e8fb4]/40 bg-[#355e8d]/20 px-2 py-1 text-[10px] font-bold text-blue-100">
+              {statusText}
+            </span>
+          </div>
+
+          {quest.description && (
+            <p className="mt-2 line-clamp-2 text-sm text-gray-400">
+              {quest.description}
+            </p>
+          )}
+
+          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            <span className="rounded-full bg-[#1f2937] px-3 py-1 text-[#d8c08a]">
+              報酬：{quest.reward || "なし"}
+            </span>
+
+            <span className="rounded-full bg-[#1f2937] px-3 py-1 text-[#d8c08a]">
+              {formatDueAt(quest.due_at)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <button
+          onClick={onPrimary}
+          className="rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-3 text-sm font-bold text-white"
+        >
+          {primaryLabel}
+        </button>
+
+        <button
+          onClick={onSecondary}
+          className="rounded-2xl border border-red-400/30 bg-red-900/40 py-3 text-sm font-bold text-red-100"
+        >
+          {secondaryLabel}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function BoardQuestCard({
   quest,
   onOpen,
@@ -143,6 +204,7 @@ function BoardQuestCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h3 className="truncate text-lg font-black">{quest.title}</h3>
+
             <span
               className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold ${tone.badge}`}
             >
@@ -189,88 +251,57 @@ function QuestDetailModal({
             >
               {type}
             </span>
-            <h2 className="mt-3 truncate font-title text-3xl font-black">
+
+            <h2 className="mt-3 truncate text-3xl font-black">
               {quest.title}
             </h2>
           </div>
 
           <button
             onClick={onClose}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] text-gray-400"
+            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] text-gray-400"
           >
             ✕
           </button>
         </div>
 
         <div className="space-y-3">
-          <DetailBox label="依頼内容" value={quest.description || "内容なし"} />
+          <DetailBox
+            label="依頼内容"
+            value={quest.description || "内容なし"}
+          />
+
           <DetailBox
             label="希望日時"
-            value={formatDueAt("due_at" in quest ? quest.due_at || null : null)}
+            value={formatDueAt(
+              "due_at" in quest ? quest.due_at || null : null
+            )}
           />
-          <DetailBox label="報酬" value={quest.reward || "なし"} />
+
+          <DetailBox
+            label="報酬"
+            value={quest.reward || "報酬なし"}
+          />
         </div>
 
         <button
           onClick={onAccept}
-          className={`mt-4 w-full rounded-2xl border py-4 font-bold text-white shadow-lg ${tone.button}`}
+          className={`mt-5 w-full rounded-2xl border py-4 text-sm font-black text-white ${tone.button}`}
         >
-          このクエストを受注する
+          クエスト受注
         </button>
       </div>
     </div>
   );
 }
 
-function HomeQuestCard({
-  quest,
-  statusText,
-  primaryLabel,
-  onPrimary,
-  secondaryLabel,
-  onSecondary,
+function DetailBox({
+  label,
+  value,
 }: {
-  quest: Quest;
-  statusText: string;
-  primaryLabel: string;
-  onPrimary: () => void;
-  secondaryLabel?: string;
-  onSecondary?: () => void;
+  label: string;
+  value: string;
 }) {
-  return (
-    <div className="rounded-3xl border border-[#c9a86a]/15 bg-[#111827] p-4 shadow-xl">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="truncate text-xl font-black">{quest.title}</h3>
-          <p className="mt-1 text-sm text-[#d8c08a]">{statusText}</p>
-          <p className="mt-2 text-xs text-gray-400">
-            希望：{formatDueAt(quest.due_at)}
-          </p>
-        </div>
-
-        <div className="flex shrink-0 flex-col gap-2">
-          <button
-            onClick={onPrimary}
-            className="rounded-2xl border border-[#6e8fb4] bg-[#355e8d] px-4 py-2 text-sm font-bold text-white"
-          >
-            {primaryLabel}
-          </button>
-
-          {secondaryLabel && onSecondary && (
-            <button
-              onClick={onSecondary}
-              className="rounded-2xl border border-red-300/30 bg-red-900/40 px-4 py-2 text-sm font-bold text-red-100"
-            >
-              {secondaryLabel}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DetailBox({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3">
       <p className="text-xs font-bold text-[#d8c08a]">{label}</p>
@@ -279,10 +310,16 @@ function DetailBox({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SectionTitle({ title, badge }: { title: string; badge?: number }) {
+function SectionTitle({
+  title,
+  badge,
+}: {
+  title: string;
+  badge?: number;
+}) {
   return (
     <div className="flex items-center gap-3">
-      <h2 className="font-title text-2xl font-black">{title}</h2>
+      <h2 className="text-2xl font-black">{title}</h2>
 
       {!!badge && (
         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-sm font-bold">
@@ -319,7 +356,8 @@ function getTone(type: string) {
   if (type === "パートナー") {
     return {
       card: "border-emerald-300/25 bg-gradient-to-br from-[#0d221a] to-[#111827]",
-      badge: "border-emerald-300/40 bg-emerald-500/15 text-emerald-100",
+      badge:
+        "border-emerald-300/40 bg-emerald-500/15 text-emerald-100",
       button: "border-emerald-300/40 bg-emerald-800",
     };
   }
@@ -344,12 +382,8 @@ function formatDueAt(dueAt: string | null) {
   if (!dueAt) return "指定なし";
 
   const date = new Date(dueAt);
+
   if (Number.isNaN(date.getTime())) return "指定なし";
 
-  return date.toLocaleString("ja-JP", {
-    month: "numeric",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
