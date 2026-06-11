@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { requestPushPermission } from "@/lib/pushNotification";
 
 type Props = {
@@ -12,14 +13,27 @@ export function PushNotificationButton({ userId, setMessage }: Props) {
   const [loading, setLoading] = useState(false);
   const [enabled, setEnabled] = useState(false);
 
+  useEffect(() => {
+    const checkEnabled = async () => {
+      const { data } = await supabase
+        .from("user_push_tokens")
+        .select("id")
+        .eq("user_id", userId)
+        .limit(1);
+
+      setEnabled(!!data?.length);
+    };
+
+    checkEnabled();
+  }, [userId]);
+
   const handleClick = async () => {
-    if (loading) return;
+    if (loading || enabled) return;
 
     setLoading(true);
 
     try {
       const result = await requestPushPermission(userId);
-
       setMessage(result.message);
       setEnabled(result.ok);
     } catch (error) {
@@ -34,13 +48,15 @@ export function PushNotificationButton({ userId, setMessage }: Props) {
   return (
     <button
       onClick={handleClick}
-      disabled={loading}
-      className="flex w-full items-center justify-between rounded-2xl border border-emerald-300/30 bg-[#1f2937] p-4 disabled:opacity-70"
+      disabled={loading || enabled}
+      className="flex w-full items-center justify-between rounded-2xl border border-emerald-300/30 bg-[#1f2937] p-4 disabled:opacity-90"
     >
       <div className="text-left">
         <p className="text-lg font-black text-white">スマホ通知</p>
         <p className="mt-1 text-sm text-gray-400">
-          この端末で通知を受け取る
+          {enabled
+            ? "この端末の通知はONです"
+            : "この端末で通知を受け取る"}
         </p>
       </div>
 
