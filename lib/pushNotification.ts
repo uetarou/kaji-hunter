@@ -1,39 +1,25 @@
 import { getToken } from "firebase/messaging";
-import { getFirebaseMessaging } from "@/lib/firebase";
+import { messaging } from "@/lib/firebase";
 import { supabase } from "@/lib/supabase";
 
 export async function requestPushPermission(userId: string) {
   try {
     if (typeof window === "undefined") {
-      return {
-        ok: false,
-        message: "ブラウザ環境ではありません。",
-      };
+      return { ok: false, message: "ブラウザ環境ではありません。" };
     }
 
     if (!("Notification" in window)) {
-      return {
-        ok: false,
-        message: "この端末は通知に対応していません。",
-      };
+      return { ok: false, message: "この端末は通知に対応していません。" };
     }
 
-    const messaging = await getFirebaseMessaging();
-
     if (!messaging) {
-      return {
-        ok: false,
-        message: "Firebase Messaging未対応端末です。",
-      };
+      return { ok: false, message: "通知機能の初期化に失敗しました。" };
     }
 
     const permission = await Notification.requestPermission();
 
     if (permission !== "granted") {
-      return {
-        ok: false,
-        message: "通知が許可されませんでした。",
-      };
+      return { ok: false, message: "通知が許可されませんでした。" };
     }
 
     const registration = await navigator.serviceWorker.register(
@@ -46,25 +32,13 @@ export async function requestPushPermission(userId: string) {
     });
 
     if (!token) {
-      return {
-        ok: false,
-        message: "通知トークンを取得できませんでした。",
-      };
+      return { ok: false, message: "通知トークンを取得できませんでした。" };
     }
 
-    const { error } = await supabase
-      .from("user_push_tokens")
-      .upsert(
-        [
-          {
-            user_id: userId,
-            token,
-          },
-        ],
-        {
-          onConflict: "user_id,token",
-        }
-      );
+    const { error } = await supabase.from("user_push_tokens").upsert(
+      [{ user_id: userId, token }],
+      { onConflict: "user_id,token" }
+    );
 
     if (error) {
       return {
@@ -73,16 +47,15 @@ export async function requestPushPermission(userId: string) {
       };
     }
 
-    return {
-      ok: true,
-      message: "スマホ通知をONにしました。",
-    };
+    return { ok: true, message: "スマホ通知をONにしました。" };
   } catch (error) {
     console.error(error);
-
     return {
       ok: false,
-      message: "通知設定中にエラーが発生しました。",
+      message:
+        error instanceof Error
+          ? `通知設定中にエラーが発生しました: ${error.message}`
+          : "通知設定中にエラーが発生しました。",
     };
   }
 }

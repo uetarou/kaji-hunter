@@ -10,21 +10,53 @@ type Props = {
 
 export function PushNotificationButton({ userId, setMessage }: Props) {
   const [loading, setLoading] = useState(false);
+  const [enabled, setEnabled] = useState(false);
 
   const handleClick = async () => {
+    if (loading) return;
+
     setLoading(true);
-    const result = await requestPushPermission(userId);
-    setMessage(result.message);
-    setLoading(false);
+
+    try {
+      const result = await requestPushPermission(userId);
+
+      setMessage(result.message);
+      setEnabled(result.ok);
+    } catch (error) {
+      console.error(error);
+      setMessage("通知設定中にエラーが発生しました。");
+      setEnabled(false);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <button
       onClick={handleClick}
       disabled={loading}
-      className="w-full rounded-2xl border border-emerald-300/40 bg-emerald-800 px-4 py-4 text-sm font-bold text-white shadow-lg disabled:opacity-60"
+      className="flex w-full items-center justify-between rounded-2xl border border-emerald-300/30 bg-[#1f2937] p-4 disabled:opacity-70"
     >
-      {loading ? "通知設定中..." : "スマホ通知をONにする"}
+      <div className="text-left">
+        <p className="text-lg font-black text-white">スマホ通知</p>
+        <p className="mt-1 text-sm text-gray-400">
+          この端末で通知を受け取る
+        </p>
+      </div>
+
+      <div
+        className={`relative h-9 w-16 rounded-full border transition ${
+          enabled
+            ? "border-emerald-300/50 bg-emerald-700"
+            : "border-[#6e8fb4]/50 bg-[#355e8d]"
+        }`}
+      >
+        <div
+          className={`absolute top-1 h-7 w-7 rounded-full bg-white transition ${
+            enabled ? "left-8" : "left-1"
+          }`}
+        />
+      </div>
     </button>
   );
 }
