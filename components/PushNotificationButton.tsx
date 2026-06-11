@@ -13,17 +13,21 @@ export function PushNotificationButton({ userId, setMessage }: Props) {
   const [loading, setLoading] = useState(false);
   const [enabled, setEnabled] = useState(false);
 
+  const checkEnabled = async () => {
+    const { count, error } = await supabase
+      .from("user_push_tokens")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setEnabled((count ?? 0) > 0);
+  };
+
   useEffect(() => {
-    const checkEnabled = async () => {
-      const { data } = await supabase
-        .from("user_push_tokens")
-        .select("id")
-        .eq("user_id", userId)
-        .limit(1);
-
-      setEnabled(!!data?.length);
-    };
-
     checkEnabled();
   }, [userId]);
 
@@ -35,11 +39,11 @@ export function PushNotificationButton({ userId, setMessage }: Props) {
     try {
       const result = await requestPushPermission(userId);
       setMessage(result.message);
-      setEnabled(result.ok);
+
+      await checkEnabled();
     } catch (error) {
       console.error(error);
       setMessage("通知設定中にエラーが発生しました。");
-      setEnabled(false);
     } finally {
       setLoading(false);
     }
@@ -54,7 +58,9 @@ export function PushNotificationButton({ userId, setMessage }: Props) {
       <div className="text-left">
         <p className="text-lg font-black text-white">スマホ通知</p>
         <p className="mt-1 text-sm text-gray-400">
-          {enabled
+          {loading
+            ? "通知設定中..."
+            : enabled
             ? "この端末の通知はONです"
             : "この端末で通知を受け取る"}
         </p>
