@@ -3,11 +3,13 @@ export function TopBar({
   hr,
   unreadCount,
   partnerName,
+  onNotificationsClick,
 }: {
   hunterName: string;
   hr: number;
   unreadCount: number;
   partnerName?: string | null;
+  onNotificationsClick?: () => void;
 }) {
   return (
     <header className="fixed left-0 right-0 top-0 z-50 border-b border-[#c9a86a]/30 bg-gradient-to-r from-[#0b1425] via-[#13233d] to-[#0d1a30] shadow-2xl">
@@ -38,11 +40,31 @@ export function TopBar({
           </div>
         </div>
 
-        {!!unreadCount && (
-          <div className="ml-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-red-500 text-sm font-bold">
-            {unreadCount}
-          </div>
-        )}
+        <button
+          type="button"
+          onClick={onNotificationsClick}
+          className="relative ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#c9a86a]/20 bg-[#111827] text-[#d8c08a] shadow-lg"
+          aria-label="通知を開く"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="h-6 w-6"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+            <path d="M10 21h4" />
+          </svg>
+
+          {!!unreadCount && (
+            <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-black text-white">
+              {unreadCount}
+            </span>
+          )}
+        </button>
       </div>
     </header>
   );
