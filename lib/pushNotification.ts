@@ -1,5 +1,5 @@
 import { getToken } from "firebase/messaging";
-import { messaging } from "@/lib/firebase";
+import { getFirebaseMessaging } from "@/lib/firebase";
 import { supabase } from "@/lib/supabase";
 
 export async function requestPushPermission(userId: string) {
@@ -11,6 +11,8 @@ export async function requestPushPermission(userId: string) {
     if (!("Notification" in window)) {
       return { ok: false, message: "この端末は通知に対応していません。" };
     }
+
+    const messaging = await getFirebaseMessaging();
 
     if (!messaging) {
       return { ok: false, message: "通知機能の初期化に失敗しました。" };
@@ -50,6 +52,7 @@ export async function requestPushPermission(userId: string) {
     return { ok: true, message: "スマホ通知をONにしました。" };
   } catch (error) {
     console.error(error);
+
     return {
       ok: false,
       message:
