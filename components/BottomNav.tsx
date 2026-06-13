@@ -3,16 +3,15 @@ type Props = {
   setActiveTab: (tab: string) => void;
   questCount?: number;
   requestCount?: number;
-  shopCount?: number;
   unreadCount?: number;
 };
 
 const tabs = [
-  { key: "home", label: "ホーム", icon: HomeIcon },
-  { key: "quests", label: "クエスト", icon: SwordIcon },
-  { key: "request", label: "依頼", icon: ScrollIcon },
-  { key: "shop", label: "ショップ", icon: ShopIcon },
-  { key: "settings", label: "設定", icon: GearIcon },
+  { key: "home", label: "ホーム", icon: <HomeIcon /> },
+  { key: "quests", label: "クエスト", icon: <SwordIcon /> },
+  { key: "request", label: "依頼", icon: <ScrollIcon /> },
+  { key: "shop", label: "ショップ", icon: <ShopIcon /> },
+  { key: "settings", label: "設定", icon: <GearIcon /> },
 ];
 
 export function BottomNav({
@@ -20,24 +19,21 @@ export function BottomNav({
   setActiveTab,
   questCount = 0,
   requestCount = 0,
-  shopCount = 0,
   unreadCount = 0,
 }: Props) {
   const getBadgeCount = (key: string) => {
     if (key === "quests") return questCount;
     if (key === "request") return requestCount;
-    if (key === "shop") return shopCount;
     if (key === "settings") return unreadCount;
     return 0;
   };
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#07111f]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-      <div className="mx-auto grid max-w-md grid-cols-5 gap-2 px-2 pb-2 pt-2">
+      <div className="mx-auto grid max-w-md grid-cols-5 gap-1.5 px-3 pb-2 pt-2">
         {tabs.map((tab) => {
           const active = activeTab === tab.key;
           const badge = getBadgeCount(tab.key);
-          const Icon = tab.icon;
 
           return (
             <button
@@ -55,7 +51,7 @@ export function BottomNav({
                 </span>
               )}
 
-              <Icon />
+              <span className="leading-none">{tab.icon}</span>
               <span className="mt-1">{tab.label}</span>
             </button>
           );
@@ -102,7 +98,6 @@ function ShopIcon() {
     <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.2">
       <path d="M6 8h12l-1 12H7L6 8Z" />
       <path d="M9 8a3 3 0 0 1 6 0" />
-      <path d="M9 13h6" />
     </svg>
   );
 }
@@ -111,7 +106,7 @@ function GearIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.2">
       <path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" />
-      <path d="M19 13.5v-3l-2.1-.5a7 7 0 0 0-.7-1.7l1.1-1.9-2.1-2.1-1.9 1.1a7 7 0 0 0-1.7-.7L11 2H8l-.5 2.1a7 7 0 0 0-1.7.7L3.9 3.7 1.8 5.8l1.1 1.9a7 7 0 0 0-.7 1.7L0 10v3l2.1.5a7 7 0 0 0 .7 1.7l-1.1 1.9 2.1 2.1 1.9-1.1a7 7 0 0 0 1.7.7L8 22h3l.5-2.1a7 7 0 0 0 1.7-.7l1.9 1.1 2.1-2.1-1.1-1.9a7 7 0 0 0 .7-1.7L19 13.5Z" transform="translate(2 0)" />
+      <path d="M19.4 15a8 8 0 0 0 .1-1l2-1.5-2-3.5-2.4 1a7 7 0 0 0-1.7-1l-.3-2.6h-4l-.3 2.6a7 7 0 0 0-1.7 1l-2.4-1-2 3.5 2 1.5a8 8 0 0 0 .1 1l-2 1.5 2 3.5 2.4-1a7 7 0 0 0 1.7 1l.3 2.6h4l.3-2.6a7 7 0 0 0 1.7-1l2.4 1 2-3.5-2-1.5Z" />
     </svg>
   );
 }

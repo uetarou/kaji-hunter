@@ -9,8 +9,8 @@ import { QuestBoard } from "@/components/QuestBoard";
 import { RequestForm } from "@/components/RequestForm";
 import { SettingsView } from "@/components/SettingsView";
 import { ReportModal } from "@/components/ReportModal";
+import { ShopView, type ShopItem } from "@/components/ShopView";
 import { NotificationCenter } from "@/components/NotificationCenter";
-import { ShopView } from "@/components/ShopView";
 
 export type Quest = {
   id: string;
@@ -18,12 +18,12 @@ export type Quest = {
   description: string | null;
   category: string | null;
   reward: string | null;
-  points: number | null;
   status: string;
   is_urgent: boolean;
   created_by: string | null;
   accepted_by: string | null;
   due_at: string | null;
+  points?: number | null;
 };
 
 export type Profile = {
@@ -32,7 +32,8 @@ export type Profile = {
   hr: number | null;
   invite_code: string | null;
   partner_id: string | null;
-  points: number | null;
+  points?: number | null;
+  total_points?: number | null;
 };
 
 export type Notification = {
@@ -58,50 +59,41 @@ export type PartnerRequest = {
   receiver_id: string;
   status: "pending" | "accepted" | "rejected" | "cancelled";
   created_at: string | null;
-  requester?: Profile | null;
-  receiver?: Profile | null;
-};
 
-export type ShopItem = {
-  id: string;
-  seller_id: string;
-  pair_id: string | null;
-  title: string;
-  description: string | null;
-  price: number;
-  status: "available" | "sold";
-  bought_by: string | null;
-  created_at: string | null;
-  bought_at: string | null;
+  requester?: {
+    hunter_name?: string | null;
+  } | null;
+
+  receiver?: {
+    hunter_name?: string | null;
+  } | null;
 };
 
 type CreateQuestInput = {
   title: string;
   description: string;
-  points: number;
+  reward?: string;
   dueAt: string | null;
   isUrgent: boolean;
 };
 
-type AcceptableQuest = Quest | { id: string; title: string; points?: number };
+type AcceptableQuest = Quest | { id: string; title: string };
 
 const tabs = ["home", "quests", "request", "shop", "settings"];
 
 export default function Page() {
   const [activeTab, setActiveTab] = useState("home");
   const [settingsPage, setSettingsPage] = useState<string | null>(null);
-  const [showNotifications, setShowNotifications] = useState(false);
 
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [partnerProfile, setPartnerProfile] = useState<Profile | null>(null);
 
   const [quests, setQuests] = useState<Quest[]>([]);
+  const [shopItems, setShopItems] = useState<ShopItem[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationSettings, setNotificationSettings] =
     useState<NotificationSettings | null>(null);
-  const [incomingPartnerRequests, setIncomingPartnerRequests] = useState<PartnerRequest[]>([]);
-  const [shopItems, setShopItems] = useState<ShopItem[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -123,7 +115,7 @@ export default function Page() {
   const myId = user?.id;
   const partnerId = profile?.partner_id;
   const modalOpen =
-    !!selectedQuest || !!editingQuest || showNameModal || isRequestModalOpen || showNotifications;
+    !!selectedQuest || !!editingQuest || showNameModal || isRequestModalOpen;
 
   useEffect(() => {
     if (!message) return;
@@ -131,7 +123,8 @@ export default function Page() {
     return () => clearTimeout(timer);
   }, [message]);
 
-  const generateInviteCode = (userId: string) => userId.slice(0, 8).toUpperCase();
+  const generateInviteCode = (userId: string) =>
+    userId.slice(0, 8).toUpperCase();
 
   const initAuth = async () => {
     setLoading(true);
@@ -141,11 +134,17 @@ export default function Page() {
 
     if (!currentUser) {
       const { data, error } = await supabase.auth.signInAnonymously();
+
       if (error || !data.user) {
-        setMessage(`匿名ログインに失敗しました: ${error?.message || "ユーザー取得失敗"}`);
+        setMessage(
+          `匿名ログインに失敗しました: ${
+            error?.message || "ユーザー取得失敗"
+          }`
+        );
         setLoading(false);
         return;
       }
+
       currentUser = data.user;
     }
 
@@ -173,6 +172,7 @@ export default function Page() {
       invite_code: existing?.invite_code || inviteCode,
       partner_id: existing?.partner_id || null,
       points: existing?.points ?? 0,
+      total_points: existing?.total_points ?? 0,
     };
 
     const { data, error } = await supabase
@@ -239,6 +239,17 @@ export default function Page() {
     setQuests(data || []);
   };
 
+  const fetchShopItems = async () => {
+    if (!user) return;
+
+    const { data } = await supabase
+      .from("shop_items")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    setShopItems((data || []) as ShopItem[]);
+  };
+
   const fetchNotifications = async (userId: string) => {
     const { data } = await supabase
       .from("notifications")
@@ -247,26 +258,6 @@ export default function Page() {
       .order("created_at", { ascending: false });
 
     setNotifications(data || []);
-  };
-
-  const fetchIncomingPartnerRequests = async (userId: string) => {
-    const { data } = await supabase
-      .from("partner_requests")
-      .select("*, requester:profiles!partner_requests_requester_id_fkey(*)")
-      .eq("receiver_id", userId)
-      .eq("status", "pending")
-      .order("created_at", { ascending: false });
-
-    setIncomingPartnerRequests((data || []) as PartnerRequest[]);
-  };
-
-  const fetchShopItems = async () => {
-    const { data } = await supabase
-      .from("shop_items")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    setShopItems((data || []) as ShopItem[]);
   };
 
   const fetchNotificationSettings = async (userId: string) => {
@@ -294,10 +285,9 @@ export default function Page() {
     }
 
     await fetchQuests();
-    await fetchNotifications(user.id);
-    await fetchIncomingPartnerRequests(user.id);
-    await fetchNotificationSettings(user.id);
     await fetchShopItems();
+    await fetchNotifications(user.id);
+    await fetchNotificationSettings(user.id);
     setLoading(false);
   };
 
@@ -340,29 +330,38 @@ export default function Page() {
   const myRequestQuests = useMemo(
     () =>
       visibleQuests.filter(
-        (q) => q.created_by === myId && q.accepted_by !== myId && q.status !== "completed"
+        (q) =>
+          q.created_by === myId &&
+          q.accepted_by !== myId &&
+          q.status !== "completed"
       ),
     [visibleQuests, myId]
   );
 
   const waitingConfirmQuests = useMemo(
-    () => visibleQuests.filter((q) => q.created_by === myId && q.status === "waiting_confirm"),
-    [visibleQuests, myId]
+    () => myRequestQuests.filter((q) => q.status === "waiting_confirm"),
+    [myRequestQuests]
   );
 
-  const availablePartnerShopCount = useMemo(
-    () =>
-      shopItems.filter(
-        (item) =>
-          item.status === "available" &&
-          item.seller_id === partnerId
-      ).length,
-    [shopItems, partnerId]
-  );
+  const currentPoints = profile?.points ?? 0;
+  const totalPoints = profile?.total_points ?? 0;
+  const calculatedHr = Math.floor(totalPoints / 200) + 1;
+
+  const markAllNotificationsRead = async () => {
+    if (!user) return;
+
+    await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("user_id", user.id)
+      .eq("is_read", false);
+
+    await reloadAll();
+  };
 
   const unreadCount = useMemo(
-    () => notifications.filter((n) => !n.is_read).length + incomingPartnerRequests.length + waitingConfirmQuests.length,
-    [notifications, incomingPartnerRequests, waitingConfirmQuests]
+    () => notifications.filter((n) => !n.is_read).length,
+    [notifications]
   );
 
   const createNotification = async (
@@ -381,7 +380,14 @@ export default function Page() {
 
     if (settings && settings[type] === false) return;
 
-    await supabase.from("notifications").insert([{ user_id: userId, title, message, is_read: false }]);
+    await supabase.from("notifications").insert([
+      {
+        user_id: userId,
+        title,
+        message,
+        is_read: false,
+      },
+    ]);
 
     try {
       await fetch("/api/send-push", {
@@ -389,11 +395,14 @@ export default function Page() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, title, message }),
       });
-    } catch {}
+    } catch {
+      // アプリ内通知は保存済みなので、Push送信失敗だけでは止めない
+    }
   };
 
   const saveInitialName = async () => {
     if (!user) return;
+
     const name = initialHunterName.trim();
 
     if (!name) {
@@ -407,7 +416,6 @@ export default function Page() {
       hr: profile?.hr || 1,
       invite_code: profile?.invite_code || generateInviteCode(user.id),
       partner_id: profile?.partner_id || null,
-      points: profile?.points ?? 0,
     };
 
     const { data, error } = await supabase
@@ -427,20 +435,29 @@ export default function Page() {
     await reloadAll();
   };
 
-  const createQuest = async ({ title, description, points, dueAt, isUrgent }: CreateQuestInput) => {
+  const createQuest = async ({
+    title,
+    description,
+    reward,
+    dueAt,
+    isUrgent,
+  }: CreateQuestInput) => {
     if (!user || !title.trim()) return;
 
-    const safePoints = isUrgent
-      ? Math.min(Math.max(points, 50), 100)
-      : Math.min(Math.max(points, 20), 50);
+    const parsedPoints = Number(reward);
+    const questPoints = Number.isFinite(parsedPoints)
+      ? parsedPoints
+      : isUrgent
+      ? 50
+      : 20;
 
     const { error } = await supabase.from("quests").insert([
       {
         title,
         description,
         category: "依頼",
-        reward: `${safePoints}pt`,
-        points: safePoints,
+        reward: `${questPoints}pt`,
+        points: questPoints,
         due_at: dueAt,
         status: "recruiting",
         is_urgent: isUrgent,
@@ -460,7 +477,7 @@ export default function Page() {
         partnerId,
         "quest_created",
         isUrgent ? "緊急クエスト" : "新しいクエスト",
-        `${title} が依頼されました。報酬は ${safePoints}pt です。`
+        `${title} が依頼されました。`
       );
     }
 
@@ -503,7 +520,11 @@ export default function Page() {
 
     const { error } = await supabase
       .from("quests")
-      .update({ status: "accepted", accepted_by: user.id, updated_at: new Date().toISOString() })
+      .update({
+        status: "accepted",
+        accepted_by: user.id,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", realQuest.id);
 
     if (error) {
@@ -531,22 +552,37 @@ export default function Page() {
     if (reportImage) {
       const safeName = reportImage.name.replaceAll(" ", "-");
       const fileName = `${user.id}/${Date.now()}-${safeName}`;
-      const { data: uploadData } = await supabase.storage.from("quest-reports").upload(fileName, reportImage);
+
+      const { data: uploadData } = await supabase.storage
+        .from("quest-reports")
+        .upload(fileName, reportImage);
 
       if (uploadData) {
-        const { data } = supabase.storage.from("quest-reports").getPublicUrl(fileName);
+        const { data } = supabase.storage
+          .from("quest-reports")
+          .getPublicUrl(fileName);
+
         imageUrl = data.publicUrl;
       }
     }
 
-    await supabase.from("quest_reports").insert([{ quest_id: questId, image_url: imageUrl }]);
-    await supabase.from("quests").update({ status: "waiting_confirm", updated_at: new Date().toISOString() }).eq("id", questId);
+    await supabase
+      .from("quest_reports")
+      .insert([{ quest_id: questId, image_url: imageUrl }]);
+
+    await supabase
+      .from("quests")
+      .update({
+        status: "waiting_confirm",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", questId);
 
     await createNotification(
       selectedQuest.created_by,
       "quest_reported",
       "完了報告",
-      `${selectedQuest.title} の完了報告が届きました。承認すると ${selectedQuest.points ?? 20}pt が付与されます。`
+      `${selectedQuest.title} の完了報告が届きました。`
     );
 
     setSelectedQuest(null);
@@ -556,20 +592,29 @@ export default function Page() {
   };
 
   const approveQuest = async (quest: Quest) => {
-    await supabase.from("quests").update({ status: "completed", updated_at: new Date().toISOString() }).eq("id", quest.id);
+    await supabase
+      .from("quests")
+      .update({
+        status: "completed",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", quest.id);
 
     if (quest.accepted_by) {
-      const { data: acceptedProfile } = await supabase
+      const awardPoints = quest.points ?? 20;
+
+      const { data: hunter } = await supabase
         .from("profiles")
-        .select("points")
+        .select("points,total_points")
         .eq("id", quest.accepted_by)
         .maybeSingle();
 
-      const nextPoints = (acceptedProfile?.points ?? 0) + (quest.points ?? 20);
-
       await supabase
         .from("profiles")
-        .update({ points: nextPoints })
+        .update({
+          points: (hunter?.points ?? 0) + awardPoints,
+          total_points: (hunter?.total_points ?? 0) + awardPoints,
+        })
         .eq("id", quest.accepted_by);
     }
 
@@ -577,7 +622,7 @@ export default function Page() {
       quest.accepted_by,
       "quest_approved",
       "達成承認",
-      `${quest.title} が承認されました。${quest.points ?? 20}pt 獲得！`
+      `${quest.title} が承認されました。`
     );
 
     await reloadAll();
@@ -585,7 +630,13 @@ export default function Page() {
   };
 
   const cancelQuest = async (quest: Quest) => {
-    const { error } = await supabase.from("quests").update({ status: "cancelled", updated_at: new Date().toISOString() }).eq("id", quest.id);
+    const { error } = await supabase
+      .from("quests")
+      .update({
+        status: "cancelled",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", quest.id);
 
     if (error) {
       setMessage(`取り下げに失敗しました: ${error.message}`);
@@ -597,16 +648,29 @@ export default function Page() {
     await reloadAll();
   };
 
-  const updateQuest = async ({ title, description, points, dueAt, isUrgent }: CreateQuestInput) => {
+  const updateQuest = async ({
+    title,
+    description,
+    reward,
+    dueAt,
+    isUrgent,
+  }: CreateQuestInput) => {
     if (!editingQuest) return;
+
+    const parsedPoints = Number(reward);
+    const questPoints = Number.isFinite(parsedPoints)
+      ? parsedPoints
+      : isUrgent
+      ? 50
+      : 20;
 
     const { error } = await supabase
       .from("quests")
       .update({
         title,
         description,
-        reward: `${points}pt`,
-        points,
+        reward: `${questPoints}pt`,
+        points: questPoints,
         due_at: dueAt,
         is_urgent: isUrgent,
         updated_at: new Date().toISOString(),
@@ -623,38 +687,15 @@ export default function Page() {
     setMessage("クエスト内容を変更しました。");
   };
 
-  const markAllNotificationsRead = async () => {
-    if (!user) return;
-    await supabase.from("notifications").update({ is_read: true }).eq("user_id", user.id);
-    await reloadAll();
-  };
-
-  const approvePartnerRequest = async (request: PartnerRequest) => {
-    if (!user) return;
-
-    await supabase.from("partner_requests").update({ status: "accepted" }).eq("id", request.id);
-    await supabase.from("profiles").update({ partner_id: request.requester_id }).eq("id", user.id);
-    await supabase.from("profiles").update({ partner_id: user.id }).eq("id", request.requester_id);
-
-    await createNotification(
-      request.requester_id,
-      "quest_approved",
-      "パートナー承認",
-      `${profile?.hunter_name || "相手"} がパートナー申請を承認しました。`
-    );
-
-    setShowNotifications(false);
-    await reloadAll();
-    setMessage("パートナー申請を承認しました。");
-  };
-
-  const rejectPartnerRequest = async (request: PartnerRequest) => {
-    await supabase.from("partner_requests").update({ status: "rejected" }).eq("id", request.id);
-    await reloadAll();
-    setMessage("パートナー申請を拒否しました。");
-  };
-
-  const createShopItem = async ({ title, description, price }: { title: string; description: string; price: number }) => {
+  const createShopItem = async ({
+    title,
+    description,
+    price,
+  }: {
+    title: string;
+    description: string;
+    price: number;
+  }) => {
     if (!user || !title.trim()) return;
 
     const { error } = await supabase.from("shop_items").insert([
@@ -678,7 +719,7 @@ export default function Page() {
         partnerId,
         "quest_created",
         "ショップ出品",
-        `${profile?.hunter_name || "パートナー"} が「${title}」を出品しました。`
+        `${title} がショップに出品されました。`
       );
     }
 
@@ -689,14 +730,8 @@ export default function Page() {
   const buyShopItem = async (item: ShopItem) => {
     if (!user || !profile) return;
 
-    const currentPoints = profile.points ?? 0;
-    if (currentPoints < item.price) {
+    if ((profile.points ?? 0) < item.price) {
       setMessage("ポイントが足りません。");
-      return;
-    }
-
-    if (item.seller_id === user.id) {
-      setMessage("自分の商品は購入できません。");
       return;
     }
 
@@ -715,14 +750,33 @@ export default function Page() {
       return;
     }
 
-    await supabase.from("profiles").update({ points: currentPoints - item.price }).eq("id", user.id);
+    await supabase
+      .from("profiles")
+      .update({ points: (profile.points ?? 0) - item.price })
+      .eq("id", user.id);
 
-    await createNotification(
-      item.seller_id,
-      "quest_accepted",
-      "商品購入",
-      `${profile.hunter_name || "パートナー"} が「${item.title}」を購入しました。`
-    );
+    if (item.seller_id) {
+      const { data: seller } = await supabase
+        .from("profiles")
+        .select("points,total_points")
+        .eq("id", item.seller_id)
+        .maybeSingle();
+
+      await supabase
+        .from("profiles")
+        .update({
+          points: (seller?.points ?? 0) + item.price,
+          total_points: (seller?.total_points ?? 0) + item.price,
+        })
+        .eq("id", item.seller_id);
+
+      await createNotification(
+        item.seller_id,
+        "quest_accepted",
+        "商品購入",
+        `${item.title} が購入されました。`
+      );
+    }
 
     await reloadAll();
     setMessage("商品を購入しました。");
@@ -730,15 +784,22 @@ export default function Page() {
 
   const moveTab = (direction: "left" | "right") => {
     const currentIndex = tabs.indexOf(activeTab);
-    if (direction === "left") setActiveTab(tabs[(currentIndex + 1) % tabs.length]);
-    if (direction === "right") setActiveTab(tabs[(currentIndex - 1 + tabs.length) % tabs.length]);
+
+    if (direction === "left") {
+      setActiveTab(tabs[(currentIndex + 1) % tabs.length]);
+    }
+
+    if (direction === "right") {
+      setActiveTab(tabs[(currentIndex - 1 + tabs.length) % tabs.length]);
+    }
+
     setSettingsPage(null);
-    setShowNotifications(false);
     setDragX(0);
   };
 
   const handleTouchStart = (e: React.TouchEvent<HTMLElement>) => {
     if (modalOpen) return;
+
     setTouchStartX(e.touches[0].clientX);
     setTouchStartY(e.touches[0].clientY);
   };
@@ -752,9 +813,15 @@ export default function Page() {
     const diffX = currentX - touchStartX;
     const diffY = currentY - touchStartY;
 
-    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 18) setDragX(diffX * 0.35);
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 18) {
+      setDragX(diffX * 0.35);
+    }
 
-    if (window.scrollY <= 0 && diffY > 0 && Math.abs(diffY) > Math.abs(diffX)) {
+    if (
+      window.scrollY <= 0 &&
+      diffY > 0 &&
+      Math.abs(diffY) > Math.abs(diffX)
+    ) {
       setPullDistance(Math.min(diffY * 0.5, 120));
     }
   };
@@ -764,6 +831,7 @@ export default function Page() {
     if (touchStartX === null || touchStartY === null) return;
 
     const endX = e.changedTouches[0].clientX;
+    const endY = e.changedTouches[0].clientY;
     const diffX = touchStartX - endX;
 
     if (Math.abs(diffX) > 80) {
@@ -808,7 +876,10 @@ export default function Page() {
     >
       <div
         className="fixed left-0 right-0 top-0 z-[70] flex items-center justify-center overflow-hidden bg-[#07111f] text-sm font-bold text-[#d8c08a] transition-all duration-300"
-        style={{ height: `${pullDistance}px`, opacity: pullDistance > 20 || isRefreshing ? 1 : 0 }}
+        style={{
+          height: `${pullDistance}px`,
+          opacity: pullDistance > 20 || isRefreshing ? 1 : 0,
+        }}
       >
         {isRefreshing ? (
           <div className="flex items-center gap-3">
@@ -823,38 +894,28 @@ export default function Page() {
       <TopBar
         hunterName={profile?.hunter_name || "テストハンター"}
         partnerName={partnerProfile?.hunter_name || null}
-        hr={profile?.hr || 1}
-        points={profile?.points || 0}
+        hr={calculatedHr}
+        points={currentPoints}
+        totalPoints={totalPoints}
         unreadCount={unreadCount}
         onNotificationsClick={() => {
-          setShowNotifications(true);
-          setActiveTab("home");
-          setSettingsPage(null);
+          setActiveTab("settings");
+          setSettingsPage("notification-center");
         }}
       />
 
-      <div className="transition-transform duration-200" style={{ transform: `translateX(${dragX}px)` }}>
-        <div className="mx-auto max-w-md px-4 pt-[150px]">
+      <div
+        className="transition-transform duration-200"
+        style={{ transform: `translateX(${dragX}px)` }}
+      >
+        <div className="mx-auto max-w-md px-4 pt-[125px]">
           {message && (
             <div className="mb-4 rounded-2xl border border-[#c9a86a]/20 bg-[#111827] p-3 text-sm text-[#d8c08a]">
               {message}
             </div>
           )}
 
-          {showNotifications && (
-            <NotificationCenter
-              notifications={notifications}
-              incomingPartnerRequests={incomingPartnerRequests}
-              waitingConfirmQuests={waitingConfirmQuests}
-              onBack={() => setShowNotifications(false)}
-              onMarkAllRead={markAllNotificationsRead}
-              onApprovePartnerRequest={approvePartnerRequest}
-              onRejectPartnerRequest={rejectPartnerRequest}
-              onApproveQuest={approveQuest}
-            />
-          )}
-
-          {!showNotifications && activeTab === "home" && (
+          {activeTab === "home" && (
             <QuestBoard.Home
               acceptedQuests={acceptedQuests}
               myRequestQuests={myRequestQuests}
@@ -865,25 +926,45 @@ export default function Page() {
             />
           )}
 
-          {!showNotifications && activeTab === "quests" && (
-            <QuestBoard.Board partnerQuests={partnerRecruitingQuests} onAccept={(quest: AcceptableQuest) => acceptQuest(quest)} />
-          )}
-
-          {!showNotifications && activeTab === "request" && (
-            <RequestForm onCreate={(quest: CreateQuestInput) => createQuest(quest)} onModalOpenChange={setIsRequestModalOpen} />
-          )}
-
-          {!showNotifications && activeTab === "shop" && (
-            <ShopView
-              profile={profile}
-              partnerProfile={partnerProfile}
-              items={shopItems}
-              onCreateItem={createShopItem}
-              onBuyItem={buyShopItem}
+          {activeTab === "quests" && (
+            <QuestBoard.Board
+              partnerQuests={partnerRecruitingQuests}
+              onAccept={(quest: AcceptableQuest) => acceptQuest(quest)}
             />
           )}
 
-          {!showNotifications && activeTab === "settings" && user && (
+          {activeTab === "request" && (
+            <RequestForm
+              onCreate={(quest: CreateQuestInput) => createQuest(quest)}
+              onModalOpenChange={setIsRequestModalOpen}
+            />
+          )}
+
+          {activeTab === "shop" && user && (
+            <ShopView
+              userId={user.id}
+              points={currentPoints}
+              items={shopItems}
+              onBuy={buyShopItem}
+              onCreate={createShopItem}
+            />
+          )}
+
+          {activeTab === "settings" &&
+            settingsPage === "notification-center" && (
+              <NotificationCenter
+                notifications={notifications}
+                waitingConfirmQuests={waitingConfirmQuests}
+                onBack={() => {
+                  setActiveTab("settings");
+                  setSettingsPage(null);
+                }}
+                onMarkAllRead={markAllNotificationsRead}
+                onApproveQuest={approveQuest}
+              />
+            )}
+
+          {activeTab === "settings" && settingsPage !== "notification-center" && user && (
             <SettingsView
               user={user}
               profile={profile}
@@ -912,11 +993,19 @@ export default function Page() {
       )}
 
       {editingQuest && (
-        <EditQuestModal quest={editingQuest} onClose={() => setEditingQuest(null)} onSubmit={updateQuest} />
+        <EditQuestModal
+          quest={editingQuest}
+          onClose={() => setEditingQuest(null)}
+          onSubmit={updateQuest}
+        />
       )}
 
       {showNameModal && (
-        <InitialNameModal value={initialHunterName} setValue={setInitialHunterName} onSubmit={saveInitialName} />
+        <InitialNameModal
+          value={initialHunterName}
+          setValue={setInitialHunterName}
+          onSubmit={saveInitialName}
+        />
       )}
 
       <BottomNav
@@ -924,11 +1013,9 @@ export default function Page() {
         setActiveTab={(tab) => {
           setActiveTab(tab);
           setSettingsPage(null);
-          setShowNotifications(false);
         }}
         questCount={partnerRecruitingQuests.length}
         requestCount={myRequestQuests.length}
-        shopCount={availablePartnerShopCount}
         unreadCount={unreadCount}
       />
     </main>
@@ -946,23 +1033,26 @@ function EditQuestModal({
 }) {
   const [title, setTitle] = useState(quest.title);
   const [description, setDescription] = useState(quest.description || "");
+  const [reward, setReward] = useState(quest.reward || "");
   const [isUrgent, setIsUrgent] = useState(quest.is_urgent);
-  const [points, setPoints] = useState(quest.points || (quest.is_urgent ? 50 : 20));
 
   const initialDate = quest.due_at ? new Date(quest.due_at) : null;
-  const [dueDate, setDueDate] = useState(initialDate ? initialDate.toISOString().slice(0, 10) : "");
-  const [dueTime, setDueTime] = useState(initialDate ? initialDate.toTimeString().slice(0, 5) : "");
-
-  const minPoint = isUrgent ? 50 : 20;
-  const maxPoint = isUrgent ? 100 : 50;
+  const [dueDate, setDueDate] = useState(
+    initialDate ? initialDate.toISOString().slice(0, 10) : ""
+  );
+  const [dueTime, setDueTime] = useState(
+    initialDate ? initialDate.toTimeString().slice(0, 5) : ""
+  );
 
   const submit = () => {
     if (!title.trim()) return;
 
-    const safePoints = Math.min(Math.max(points, minPoint), maxPoint);
-    const dueAt = dueDate && dueTime ? new Date(`${dueDate}T${dueTime}`).toISOString() : null;
+    const dueAt =
+      dueDate && dueTime
+        ? new Date(`${dueDate}T${dueTime}`).toISOString()
+        : null;
 
-    onSubmit({ title, description, points: safePoints, dueAt, isUrgent });
+    onSubmit({ title, description, reward, dueAt, isUrgent });
   };
 
   return (
@@ -974,48 +1064,88 @@ function EditQuestModal({
               <p className="text-sm font-bold text-[#d8c08a]">Edit Quest</p>
               <h2 className="font-title text-3xl font-black">依頼内容変更</h2>
             </div>
-            <button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] text-gray-400">✕</button>
+
+            <button
+              onClick={onClose}
+              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] text-gray-400"
+            >
+              ✕
+            </button>
           </div>
 
           <div className="space-y-3 pb-28">
             <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => { setIsUrgent(false); setPoints(20); }} className={`rounded-2xl border p-3 font-bold ${!isUrgent ? "border-[#6e8fb4] bg-[#355e8d]" : "border-[#c9a86a]/10 bg-[#1f2937]"}`}>
+              <button
+                onClick={() => setIsUrgent(false)}
+                className={`rounded-2xl border p-3 font-bold ${
+                  !isUrgent
+                    ? "border-[#6e8fb4] bg-[#355e8d]"
+                    : "border-[#c9a86a]/10 bg-[#1f2937]"
+                }`}
+              >
                 通常
               </button>
-              <button onClick={() => { setIsUrgent(true); setPoints(50); }} className={`rounded-2xl border p-3 font-bold ${isUrgent ? "border-red-300/50 bg-red-700" : "border-[#c9a86a]/10 bg-[#1f2937]"}`}>
+
+              <button
+                onClick={() => setIsUrgent(true)}
+                className={`rounded-2xl border p-3 font-bold ${
+                  isUrgent
+                    ? "border-red-300/50 bg-red-700"
+                    : "border-[#c9a86a]/10 bg-[#1f2937]"
+                }`}
+              >
                 緊急
               </button>
             </div>
 
             <InputBlock label="クエスト名">
-              <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none" />
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
+              />
             </InputBlock>
 
             <InputBlock label="依頼内容">
-              <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="h-24 w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none" />
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="h-24 w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
+              />
             </InputBlock>
 
             <InputBlock label="希望日">
-              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none" />
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
+              />
             </InputBlock>
 
             <InputBlock label="希望時間">
-              <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none" />
+              <input
+                type="time"
+                value={dueTime}
+                onChange={(e) => setDueTime(e.target.value)}
+                className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
+              />
             </InputBlock>
 
-            <InputBlock label={`報酬ポイント（${minPoint}〜${maxPoint}pt）`}>
-              <div className="rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-sm text-gray-400">報酬</span>
-                  <span className="text-2xl font-black text-[#d8c08a]">{points} pt</span>
-                </div>
-                <input type="range" min={minPoint} max={maxPoint} step={5} value={points} onChange={(e) => setPoints(Number(e.target.value))} className="w-full" />
-              </div>
+            <InputBlock label="報酬">
+              <input
+                value={reward}
+                onChange={(e) => setReward(e.target.value)}
+                className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-sm outline-none"
+              />
             </InputBlock>
           </div>
 
           <div className="sticky bottom-0 -mx-4 -mb-4 border-t border-[#c9a86a]/10 bg-[#111827]/95 p-4 backdrop-blur-xl">
-            <button onClick={submit} className="w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-4 font-bold text-white shadow-lg">
+            <button
+              onClick={submit}
+              className="w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-4 font-bold text-white shadow-lg"
+            >
               変更を保存する
             </button>
           </div>
@@ -1025,15 +1155,38 @@ function EditQuestModal({
   );
 }
 
-function InitialNameModal({ value, setValue, onSubmit }: { value: string; setValue: (value: string) => void; onSubmit: () => void }) {
+function InitialNameModal({
+  value,
+  setValue,
+  onSubmit,
+}: {
+  value: string;
+  setValue: (value: string) => void;
+  onSubmit: () => void;
+}) {
   return (
     <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-3xl border border-[#c9a86a]/20 bg-[#111827] p-5 shadow-2xl">
         <p className="text-sm font-bold text-[#d8c08a]">Hunter Entry</p>
-        <h2 className="mt-2 font-title text-3xl font-black">ハンター名を登録</h2>
-        <p className="mt-3 text-sm leading-6 text-gray-400">最初にアプリで使う名前を入力してください。</p>
-        <input value={value} onChange={(e) => setValue(e.target.value)} placeholder="例：たくやハンター" className="mt-5 w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none" />
-        <button onClick={onSubmit} className="mt-5 w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-4 font-bold text-white">
+        <h2 className="mt-2 font-title text-3xl font-black">
+          ハンター名を登録
+        </h2>
+
+        <p className="mt-3 text-sm leading-6 text-gray-400">
+          最初にアプリで使う名前を入力してください。
+        </p>
+
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="例：たくやハンター"
+          className="mt-5 w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none"
+        />
+
+        <button
+          onClick={onSubmit}
+          className="mt-5 w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-4 font-bold text-white"
+        >
           冒険を始める
         </button>
       </div>
@@ -1041,7 +1194,13 @@ function InitialNameModal({ value, setValue, onSubmit }: { value: string; setVal
   );
 }
 
-function InputBlock({ label, children }: { label: string; children: React.ReactNode }) {
+function InputBlock({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block">
       <p className="mb-1 text-sm font-bold text-[#d8c08a]">{label}</p>
