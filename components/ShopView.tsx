@@ -143,11 +143,54 @@ export function ShopView({
 
 function MenuCard({ sub, title, description, tone, onClick }: { sub: string; title: string; description: string; tone: "buy" | "sell"; onClick: () => void }) {
   const isBuy = tone === "buy";
-  return <button onClick={onClick} className={`flex w-full items-center justify-between gap-4 rounded-3xl border p-5 text-left shadow-xl ${isBuy ? "border-orange-300/30 bg-gradient-to-br from-[#3a2108] to-[#111827]" : "border-purple-300/30 bg-gradient-to-br from-[#26133a] to-[#111827]"}`}><div><p className="text-sm font-bold text-[#d8c08a]">{sub}</p><h3 className="mt-2 text-3xl font-black">{title}</h3><p className="mt-2 text-sm text-gray-400">{description}</p></div><div className={`grid h-16 w-16 shrink-0 place-items-center rounded-full border bg-[#1f2937] ${isBuy ? "border-orange-300/30 text-orange-200" : "border-purple-300/30 text-purple-200"}`}>{isBuy ? <GuildBadge /> : <GuildChest />}</div></button>;
+  return (
+    <button
+      onClick={onClick}
+      className={`group flex w-full items-center justify-between gap-4 overflow-hidden rounded-3xl border p-5 text-left shadow-xl transition active:scale-[0.99] ${isBuy ? "border-orange-300/35 bg-gradient-to-br from-[#4a2608] via-[#24160d] to-[#111827]" : "border-purple-300/35 bg-gradient-to-br from-[#31174a] via-[#20112d] to-[#111827]"}`}
+    >
+      <div className="min-w-0">
+        <p className="text-sm font-bold text-[#d8c08a]">{sub}</p>
+        <h3 className="mt-2 text-3xl font-black">{title}</h3>
+        <p className="mt-2 text-sm text-gray-300/75">{description}</p>
+      </div>
+      <div className={`relative grid h-20 w-20 shrink-0 place-items-center rounded-2xl border bg-[#1f2937]/90 ${isBuy ? "border-orange-200/40 text-orange-100 shadow-[0_0_30px_rgba(251,146,60,0.16)]" : "border-purple-200/40 text-purple-100 shadow-[0_0_30px_rgba(216,180,254,0.16)]"}`}>
+        <span className="absolute inset-1 rounded-[18px] border border-white/10" />
+        {isBuy ? <GuildBadge /> : <GuildChest />}
+      </div>
+      <span className="text-3xl font-black text-[#d8c08a]/70 transition group-active:translate-x-1">›</span>
+    </button>
+  );
 }
 
-function GuildBadge() { return <svg viewBox="0 0 64 64" className="h-10 w-10" fill="currentColor"><path d="M32 5 42 18 58 16 49 31 57 48 39 45 32 59 25 45 7 48 15 31 6 16 22 18 32 5Z" opacity=".35"/><path d="M32 12 39 23 50 22 44 32 50 43 38 41 32 52 26 41 14 43 20 32 14 22 25 23 32 12Z"/><path d="M32 24 37 32 32 40 27 32 32 24Z" fill="#07111f"/></svg>; }
-function GuildChest() { return <svg viewBox="0 0 64 64" className="h-10 w-10" fill="none" stroke="currentColor" strokeWidth="4" strokeLinejoin="round"><path d="M12 27h40v27H12z"/><path d="M17 19h30l5 8H12l5-8Z"/><path d="M32 27v27"/><path d="M26 38h12v8H26z"/></svg>; }
+function GuildBadge() {
+  return (
+    <svg viewBox="0 0 64 64" className="h-14 w-14" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M32 4 41 17 57 15 49 30 57 46 40 44 32 59 24 44 7 46 15 30 7 15 23 17 32 4Z" fill="currentColor" opacity="0.18" />
+      <path d="M32 8 39 21 52 20 45 32 52 45 38 42 32 54 26 42 12 45 19 32 12 20 25 21 32 8Z" />
+      <path d="M32 20 38 32 32 44 26 32 32 20Z" fill="currentColor" opacity="0.24" />
+      <path d="M22 18 29 25" />
+      <path d="M42 18 35 25" />
+      <path d="M21 46 28 39" />
+      <path d="M43 46 36 39" />
+    </svg>
+  );
+}
+
+function GuildChest() {
+  return (
+    <svg viewBox="0 0 64 64" className="h-14 w-14" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M10 27h44v26H10z" fill="currentColor" opacity="0.12" />
+      <path d="M15 18h34l5 9H10l5-9Z" />
+      <path d="M10 27h44v26H10z" />
+      <path d="M32 27v26" />
+      <path d="M25 37h14v9H25z" />
+      <path d="M18 18c1-6 7-10 14-10s13 4 14 10" />
+      <path d="M17 34h7" />
+      <path d="M40 34h7" />
+    </svg>
+  );
+}
+
 function PageHeader({ title, sub, right, onBack }: { title: string; sub: string; right: string; onBack: () => void }) { return <div><button onClick={onBack} className="mb-4 rounded-2xl border border-[#c9a86a]/15 bg-[#1f2937] px-4 py-3 text-sm font-black text-[#d8c08a]">‹ ショップに戻る</button><div className="flex items-end justify-between gap-3"><div><p className="text-sm font-bold text-[#d8c08a]">{sub}</p><h2 className="mt-1 font-title text-4xl font-black leading-none">{title}</h2></div><div className="mb-1 rounded-full border border-[#c9a86a]/25 bg-[#111827] px-4 py-2 text-sm font-black text-[#d8c08a]">{right}</div></div></div>; }
 function InputBlock({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block"><p className="mb-2 text-sm font-bold text-[#d8c08a]">{label}</p>{children}</label>; }
 function EmptyCard({ text }: { text: string }) { return <div className="rounded-3xl border border-[#c9a86a]/10 bg-[#1f2937] p-7 text-center text-gray-400">{text}</div>; }
