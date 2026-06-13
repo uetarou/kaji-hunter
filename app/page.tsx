@@ -73,11 +73,13 @@ type CreateQuestInput = {
   title: string;
   description: string;
   reward?: string;
+  points?: number;
   dueAt: string | null;
   isUrgent: boolean;
+  questType?: "normal" | "urgent" | "daily";
 };
 
-type AcceptableQuest = Quest | { id: string; title: string };
+type AcceptableQuest = Quest;
 
 const tabs = ["home", "quests", "request", "shop", "settings"];
 
@@ -163,7 +165,7 @@ export default function Page() {
       .maybeSingle();
 
     const isNewUser = !existing;
-    const currentHunterName = existing?.hunter_name || "テストハンター";
+    const currentHunterName = existing?.hunter_name || "名無しハンター";
 
     const nextProfile = {
       id: currentUser.id,
@@ -189,7 +191,7 @@ export default function Page() {
 
     setProfile(data);
 
-    if (isNewUser || data.hunter_name === "テストハンター") {
+    if (isNewUser || data.hunter_name === "名無しハンター" || data.hunter_name === "テストハンター") {
       setInitialHunterName("");
       setShowNameModal(true);
     }
@@ -439,23 +441,27 @@ export default function Page() {
     title,
     description,
     reward,
+    points,
     dueAt,
     isUrgent,
+    questType = isUrgent ? "urgent" : "normal",
   }: CreateQuestInput) => {
     if (!user || !title.trim()) return;
 
-    const parsedPoints = Number(reward);
-    const questPoints = Number.isFinite(parsedPoints)
+    const parsedPoints = points ?? Number(String(reward || "").replace(/[^0-9]/g, ""));
+    const questPoints = Number.isFinite(parsedPoints) && parsedPoints > 0
       ? parsedPoints
       : isUrgent
       ? 50
+      : questType === "daily"
+      ? 20
       : 20;
 
     const { error } = await supabase.from("quests").insert([
       {
         title,
         description,
-        category: "依頼",
+        category: questType === "daily" ? "毎日" : "依頼",
         reward: `${questPoints}pt`,
         points: questPoints,
         due_at: dueAt,
@@ -476,7 +482,7 @@ export default function Page() {
       await createNotification(
         partnerId,
         "quest_created",
-        isUrgent ? "緊急クエスト" : "新しいクエスト",
+        questType === "daily" ? "毎日クエスト" : isUrgent ? "緊急クエスト" : "新しいクエスト",
         `${title} が依頼されました。`
       );
     }
@@ -489,34 +495,7 @@ export default function Page() {
   const acceptQuest = async (quest: AcceptableQuest) => {
     if (!user) return;
 
-    if (quest.id.startsWith("daily-")) {
-      const { error } = await supabase.from("quests").insert([
-        {
-          title: quest.title,
-          description: "毎日クエストから受注",
-          category: "毎日",
-          reward: "20pt",
-          points: 20,
-          status: "accepted",
-          is_urgent: false,
-          created_by: partnerId || user.id,
-          accepted_by: user.id,
-          pair_id: partnerId || null,
-        },
-      ]);
-
-      if (error) {
-        setMessage(`デイリー受注に失敗しました: ${error.message}`);
-        return;
-      }
-
-      await reloadAll();
-      setActiveTab("home");
-      setMessage("デイリークエストを受注しました。");
-      return;
-    }
-
-    const realQuest = quest as Quest;
+    const realQuest = quest;
 
     const { error } = await supabase
       .from("quests")
@@ -652,16 +631,21 @@ export default function Page() {
     title,
     description,
     reward,
+    points,
     dueAt,
     isUrgent,
+    questType,
   }: CreateQuestInput) => {
     if (!editingQuest) return;
 
-    const parsedPoints = Number(reward);
-    const questPoints = Number.isFinite(parsedPoints)
+    const nextQuestType = questType || (editingQuest.category === "毎日" ? "daily" : isUrgent ? "urgent" : "normal");
+    const parsedPoints = points ?? Number(String(reward || "").replace(/[^0-9]/g, ""));
+    const questPoints = Number.isFinite(parsedPoints) && parsedPoints > 0
       ? parsedPoints
       : isUrgent
       ? 50
+      : nextQuestType === "daily"
+      ? 20
       : 20;
 
     const { error } = await supabase
@@ -669,6 +653,7 @@ export default function Page() {
       .update({
         title,
         description,
+        category: nextQuestType === "daily" ? "毎日" : "依頼",
         reward: `${questPoints}pt`,
         points: questPoints,
         due_at: dueAt,
@@ -726,6 +711,50 @@ export default function Page() {
     await reloadAll();
     setMessage("商品を出品しました。");
   };
+
+  const updateShopItem = async (
+    itemId: string,
+    { title, description, price }: { title: string; description: string; price: number }
+  ) => {
+    if (!user || !title.trim()) return;
+
+    const safePrice = Math.max(0, Math.floor(Number(price) || 0));
+
+    const { error } = await supabase
+      .from("shop_items")
+      .update({ title, description, price: safePrice })
+      .eq("id", itemId)
+      .eq("seller_id", user.id)
+      .eq("status", "available");
+
+    if (error) {
+      setMessage(`出品の更新に失敗しました: ${error.message}`);
+      return;
+    }
+
+    await reloadAll();
+    setMessage("出品を更新しました。");
+  };
+
+  const withdrawShopItem = async (item: ShopItem) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("shop_items")
+      .update({ status: "withdrawn" })
+      .eq("id", item.id)
+      .eq("seller_id", user.id)
+      .eq("status", "available");
+
+    if (error) {
+      setMessage(`取り下げに失敗しました: ${error.message}`);
+      return;
+    }
+
+    await reloadAll();
+    setMessage("出品を取り下げました。");
+  };
+
 
   const buyShopItem = async (item: ShopItem) => {
     if (!user || !profile) return;
@@ -892,8 +921,7 @@ export default function Page() {
       </div>
 
       <TopBar
-        hunterName={profile?.hunter_name || "テストハンター"}
-        partnerName={partnerProfile?.hunter_name || null}
+        hunterName={profile?.hunter_name || "名無しハンター"}
         hr={calculatedHr}
         points={currentPoints}
         totalPoints={totalPoints}
@@ -908,7 +936,7 @@ export default function Page() {
         className="transition-transform duration-200"
         style={{ transform: `translateX(${dragX}px)` }}
       >
-        <div className="mx-auto max-w-md px-4 pt-[112px]">
+        <div className="mx-auto max-w-md px-4 pt-[88px]">
           {message && (
             <div className="mb-4 rounded-2xl border border-[#c9a86a]/20 bg-[#111827] p-3 text-sm text-[#d8c08a]">
               {message}
@@ -947,6 +975,8 @@ export default function Page() {
               items={shopItems}
               onBuy={buyShopItem}
               onCreate={createShopItem}
+              onUpdate={updateShopItem}
+              onWithdraw={withdrawShopItem}
             />
           )}
 
@@ -1035,7 +1065,10 @@ function EditQuestModal({
   const [title, setTitle] = useState(quest.title);
   const [description, setDescription] = useState(quest.description || "");
   const [reward, setReward] = useState(quest.reward || "");
-  const [isUrgent, setIsUrgent] = useState(quest.is_urgent);
+  const [questType, setQuestType] = useState<"normal" | "urgent" | "daily">(
+    quest.category === "毎日" ? "daily" : quest.is_urgent ? "urgent" : "normal"
+  );
+  const isUrgent = questType === "urgent";
 
   const initialDate = quest.due_at ? new Date(quest.due_at) : null;
   const [dueDate, setDueDate] = useState(
@@ -1053,7 +1086,7 @@ function EditQuestModal({
         ? new Date(`${dueDate}T${dueTime}`).toISOString()
         : null;
 
-    onSubmit({ title, description, reward, dueAt, isUrgent });
+    onSubmit({ title, description, reward, dueAt, isUrgent, questType });
   };
 
   return (
@@ -1075,11 +1108,11 @@ function EditQuestModal({
           </div>
 
           <div className="space-y-3 pb-28">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-2">
               <button
-                onClick={() => setIsUrgent(false)}
-                className={`rounded-2xl border p-3 font-bold ${
-                  !isUrgent
+                onClick={() => setQuestType("normal")}
+                className={`rounded-2xl border p-3 text-sm font-bold ${
+                  questType === "normal"
                     ? "border-[#6e8fb4] bg-[#355e8d]"
                     : "border-[#c9a86a]/10 bg-[#1f2937]"
                 }`}
@@ -1088,14 +1121,25 @@ function EditQuestModal({
               </button>
 
               <button
-                onClick={() => setIsUrgent(true)}
-                className={`rounded-2xl border p-3 font-bold ${
-                  isUrgent
+                onClick={() => setQuestType("urgent")}
+                className={`rounded-2xl border p-3 text-sm font-bold ${
+                  questType === "urgent"
                     ? "border-red-300/50 bg-red-700"
                     : "border-[#c9a86a]/10 bg-[#1f2937]"
                 }`}
               >
                 緊急
+              </button>
+
+              <button
+                onClick={() => setQuestType("daily")}
+                className={`rounded-2xl border p-3 text-sm font-bold ${
+                  questType === "daily"
+                    ? "border-sky-300/50 bg-sky-700"
+                    : "border-[#c9a86a]/10 bg-[#1f2937]"
+                }`}
+              >
+                毎日
               </button>
             </div>
 
@@ -1170,7 +1214,7 @@ function InitialNameModal({
       <div className="w-full max-w-md rounded-3xl border border-[#c9a86a]/20 bg-[#111827] p-5 shadow-2xl">
         <p className="text-sm font-bold text-[#d8c08a]">Hunter Entry</p>
         <h2 className="mt-2 font-title text-3xl font-black">
-          ハンター名を登録
+          名前を登録
         </h2>
 
         <p className="mt-3 text-sm leading-6 text-gray-400">
@@ -1180,7 +1224,7 @@ function InitialNameModal({
         <input
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="例：たくやハンター"
+          placeholder="例：家事太郎"
           className="mt-5 w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none"
         />
 

@@ -2,20 +2,8 @@
 
 import { useMemo, useState } from "react";
 import type { Quest } from "@/app/page";
-import { dailyQuestTemplates } from "@/lib/questTemplates";
 
-type BoardQuest =
-  | Quest
-  | {
-      id: string;
-      title: string;
-      description: string;
-      reward: string;
-      points?: number;
-      is_urgent: boolean;
-      status: "daily";
-      due_at?: null;
-    };
+type BoardQuest = Quest;
 
 export const QuestBoard = { Home, Board };
 
@@ -87,17 +75,16 @@ function Board({
   onAccept,
 }: {
   partnerQuests: Quest[];
-  onAccept: (quest: BoardQuest) => void;
+  onAccept: (quest: Quest) => void;
 }) {
   const [selectedQuest, setSelectedQuest] = useState<BoardQuest | null>(null);
-  const [sortType, setSortType] = useState<"priority" | "partner" | "daily" | "due">("priority");
+  const [sortType, setSortType] = useState<"priority" | "partner" | "due">("priority");
 
   const boardQuests = useMemo(() => {
-    const quests: BoardQuest[] = [...partnerQuests, ...dailyQuestTemplates.map((q) => ({ ...q, points: 20 }))];
+    const quests: Quest[] = [...partnerQuests];
 
     return quests.sort((a, b) => {
       if (sortType === "partner") return Number(getQuestType(b) === "パートナー") - Number(getQuestType(a) === "パートナー");
-      if (sortType === "daily") return Number(getQuestType(b) === "毎日") - Number(getQuestType(a) === "毎日");
 
       if (sortType === "due") {
         const aTime = "due_at" in a && a.due_at ? new Date(a.due_at).getTime() : Number.MAX_SAFE_INTEGER;
@@ -126,12 +113,11 @@ function Board({
 
         <select
           value={sortType}
-          onChange={(e) => setSortType(e.target.value as "priority" | "partner" | "daily" | "due")}
+          onChange={(e) => setSortType(e.target.value as "priority" | "partner" | "due")}
           className="mb-1 w-[104px] rounded-xl border border-[#c9a86a]/15 bg-[#1f2937] px-2 py-2 text-[11px] font-bold outline-none"
         >
           <option value="priority">おすすめ</option>
           <option value="partner">依頼優先</option>
-          <option value="daily">毎日優先</option>
           <option value="due">日時順</option>
         </select>
       </div>
@@ -325,8 +311,8 @@ function EmptyCard({ text }: { text: string }) {
 }
 
 function getQuestType(quest: BoardQuest) {
-  if ("status" in quest && quest.status === "daily") return "毎日";
-  if ("is_urgent" in quest && quest.is_urgent) return "緊急";
+  if (quest.category === "毎日") return "毎日";
+  if (quest.is_urgent) return "緊急";
   return "パートナー";
 }
 

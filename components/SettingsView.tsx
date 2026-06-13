@@ -33,13 +33,13 @@ export function SettingsView({
   setMessage: (message: string) => void;
   quests?: Quest[];
 }) {
-  const [hunterName, setHunterName] = useState(profile?.hunter_name || "テストハンター");
+  const [hunterName, setHunterName] = useState(profile?.hunter_name || "名無しハンター");
   const [partnerCode, setPartnerCode] = useState("");
   const [incomingRequests, setIncomingRequests] = useState<PartnerRequest[]>([]);
   const [outgoingRequests, setOutgoingRequests] = useState<PartnerRequest[]>([]);
 
   useEffect(() => {
-    setHunterName(profile?.hunter_name || "テストハンター");
+    setHunterName(profile?.hunter_name || "名無しハンター");
   }, [profile?.hunter_name]);
 
   useEffect(() => {
