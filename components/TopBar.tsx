@@ -15,34 +15,40 @@ export function TopBar({
   totalPoints?: number;
   onNotificationsClick?: () => void;
 }) {
-  const progress = Math.max(0, Math.min(100, ((totalPoints % 200) / 200) * 100));
-  const remain = totalPoints % 200 === 0 ? 200 : 200 - (totalPoints % 200);
+  const current = totalPoints % 200;
+  const progress = Math.max(0, Math.min(100, (current / 200) * 100));
+  const remain = current === 0 ? 200 : 200 - current;
 
   return (
     <header className="fixed left-0 right-0 top-0 z-50 border-b border-[#c9a86a]/30 bg-gradient-to-r from-[#0b1425] via-[#13233d] to-[#0d1a30] shadow-2xl">
-      <div className="mx-auto flex max-w-md items-center justify-between px-4 py-4">
+      <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
         <div className="flex min-w-0 items-center gap-3">
-          <div
-            className="relative grid h-[68px] w-[68px] shrink-0 place-items-center rounded-full p-[4px] shadow-lg"
-            style={{
-              background: `conic-gradient(#d8c08a ${progress}%, #273244 ${progress}% 100%)`,
-            }}
-            title={`次のHRまで ${remain}pt`}
-          >
-            <div className="grid h-full w-full place-items-center rounded-full border border-[#c9a86a]/35 bg-[#07111f]">
-              <div className="text-center leading-none">
-                <p className="text-[10px] font-black text-[#d8c08a]">HR</p>
-                <p className="mt-1 text-xl font-black text-white">{hr}</p>
+          <div className="shrink-0">
+            <div
+              className="grid h-[58px] w-[58px] place-items-center rounded-full p-[4px] shadow-lg"
+              style={{
+                background: `conic-gradient(#d8c08a ${progress}%, #273244 ${progress}% 100%)`,
+              }}
+              title={`次のHRまで ${remain}pt`}
+            >
+              <div className="grid h-full w-full place-items-center rounded-full border border-[#c9a86a]/35 bg-[#07111f]">
+                <div className="text-center leading-none">
+                  <p className="text-[9px] font-black text-[#d8c08a]">HR</p>
+                  <p className="mt-0.5 text-xl font-black text-white">{hr}</p>
+                </div>
               </div>
             </div>
+            <p className="mt-1 text-center text-[10px] font-black text-[#d8c08a]">
+              {current}/200
+            </p>
           </div>
 
           <div className="min-w-0">
-            <h1 className="font-title text-2xl font-black tracking-wide">
+            <h1 className="font-title text-[28px] font-black leading-none tracking-wide">
               Kaji Hunter
             </h1>
 
-            <div className="mt-1 flex max-w-[230px] items-center gap-2 text-sm">
+            <div className="mt-2 flex max-w-[220px] items-center gap-2 text-sm">
               <p className="truncate text-[#d8c08a]">{hunterName}</p>
 
               {partnerName && (
@@ -53,7 +59,7 @@ export function TopBar({
               )}
             </div>
 
-            <div className="mt-2 inline-flex items-center rounded-full border border-[#c9a86a]/25 bg-[#111827] px-3 py-1 text-sm font-black text-[#d8c08a]">
+            <div className="mt-1.5 inline-flex items-center rounded-full border border-[#c9a86a]/25 bg-[#111827] px-3 py-0.5 text-sm font-black text-[#d8c08a]">
               {points} pt
             </div>
           </div>

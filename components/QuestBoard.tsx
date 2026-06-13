@@ -121,13 +121,13 @@ function Board({
       <div className="flex items-end justify-between gap-3">
         <div>
           <p className="text-sm font-bold text-[#d8c08a]">Guild Quest Board</p>
-          <h2 className="mt-1 font-title text-4xl font-black">クエストボード</h2>
+          <h2 className="mt-1 font-title text-3xl font-black leading-none">クエストボード</h2>
         </div>
 
         <select
           value={sortType}
           onChange={(e) => setSortType(e.target.value as "priority" | "partner" | "daily" | "due")}
-          className="mb-1 w-[118px] rounded-xl border border-[#c9a86a]/15 bg-[#1f2937] px-2 py-2 text-xs font-bold outline-none"
+          className="mb-1 w-[104px] rounded-xl border border-[#c9a86a]/15 bg-[#1f2937] px-2 py-2 text-[11px] font-bold outline-none"
         >
           <option value="priority">おすすめ</option>
           <option value="partner">依頼優先</option>

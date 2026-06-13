@@ -908,7 +908,7 @@ export default function Page() {
         className="transition-transform duration-200"
         style={{ transform: `translateX(${dragX}px)` }}
       >
-        <div className="mx-auto max-w-md px-4 pt-[125px]">
+        <div className="mx-auto max-w-md px-4 pt-[112px]">
           {message && (
             <div className="mb-4 rounded-2xl border border-[#c9a86a]/20 bg-[#111827] p-3 text-sm text-[#d8c08a]">
               {message}
@@ -953,8 +953,8 @@ export default function Page() {
           {activeTab === "settings" &&
             settingsPage === "notification-center" && (
               <NotificationCenter
-                notifications={notifications}
-                waitingConfirmQuests={waitingConfirmQuests}
+                  notifications={notifications}
+                  waitingConfirmQuests={waitingConfirmQuests}
                 onBack={() => {
                   setActiveTab("settings");
                   setSettingsPage(null);
