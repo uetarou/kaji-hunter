@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { GuildShopIcon } from "@/components/icons/GuildShopIcon";
+import { SellDeliveryIcon } from "@/components/icons/SellDeliveryIcon";
 
 export type ShopItem = {
   id: string;
@@ -48,7 +50,7 @@ export function ShopView({
   if (page === "buy") {
     return (
       <section className="space-y-4">
-        <PageHeader title="購入一覧" sub="Partner Items" right={`${points}pt`} onBack={() => setPage("top")} />
+        <PageHeader title="購入" sub="Partner Items" right={`${points.toLocaleString()}pt`} onBack={() => setPage("top")} />
 
         <div className="space-y-2.5">
           {buyableItems.length === 0 && <EmptyCard text="パートナーの出品はまだありません" />}
@@ -58,11 +60,11 @@ export function ShopView({
               key={item.id}
               onClick={() => onBuy(item)}
               disabled={points < item.price}
-              className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[#c9a86a]/15 bg-gradient-to-r from-[#111827] to-[#0b1425] p-3 text-left shadow-lg disabled:opacity-40"
+              className="flex w-full items-center justify-between gap-3 rounded-2xl border border-orange-200/20 bg-gradient-to-r from-[#111827] to-[#0b1425] p-3 text-left shadow-lg disabled:opacity-40"
             >
               <div className="flex min-w-0 items-center gap-3">
-                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-[#c9a86a]/25 bg-[#1f2937] text-[#d8c08a]">
-                  <VoucherIcon className="h-7 w-7" />
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-orange-200/25 bg-[#1f2937] text-orange-200">
+                  <GuildShopIcon className="h-8 w-8" />
                 </div>
                 <div className="min-w-0">
                   <h3 className="truncate text-base font-black">{item.title}</h3>
@@ -84,27 +86,41 @@ export function ShopView({
   if (page === "sell") {
     return (
       <section className="space-y-4">
-        <PageHeader title="出品" sub="Sell Item" right={`${points}pt`} onBack={() => setPage("top")} />
+        <PageHeader title="出品" sub="Sell Item" right={`${points.toLocaleString()}pt`} onBack={() => setPage("top")} />
 
-        <div className="rounded-3xl border border-purple-300/20 bg-gradient-to-b from-[#171126] to-[#111827] p-5 shadow-xl">
+        <div className="rounded-3xl border border-purple-200/20 bg-[#111827] p-5 shadow-xl">
           <div className="space-y-4">
             <InputBlock label="商品名">
-              <input placeholder="例：肩もみ10分" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none" />
+              <input
+                placeholder="例：肩もみ10分"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none"
+              />
             </InputBlock>
 
             <InputBlock label="説明">
-              <textarea placeholder="例：寝る前に肩もみする" value={description} onChange={(e) => setDescription(e.target.value)} className="h-24 w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none" />
+              <textarea
+                placeholder="例：寝る前に肩もみする"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="h-24 w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none"
+              />
             </InputBlock>
 
             <InputBlock label="価格">
-              <select value={price} onChange={(e) => setPrice(Number(e.target.value))} className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none">
+              <select
+                value={price}
+                onChange={(e) => setPrice(Number(e.target.value))}
+                className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none"
+              >
                 {[20, 30, 40, 50, 60, 80, 100, 150, 200].map((point) => (
                   <option key={point} value={point}>{point}pt</option>
                 ))}
               </select>
             </InputBlock>
 
-            <button onClick={submit} className="w-full rounded-2xl border border-purple-300/45 bg-gradient-to-r from-purple-950 via-purple-800 to-purple-950 py-4 font-black text-white shadow-lg">
+            <button onClick={submit} className="w-full rounded-2xl border border-purple-200/40 bg-gradient-to-r from-purple-950 via-purple-800 to-purple-950 py-4 font-black text-white shadow-lg">
               出品する
             </button>
           </div>
@@ -121,14 +137,26 @@ export function ShopView({
           <h2 className="mt-1 font-title text-4xl font-black leading-none">ショップ</h2>
         </div>
 
-        <div className="mb-1 rounded-full border border-[#c9a86a]/25 bg-[#111827] px-4 py-2 text-sm font-black text-[#d8c08a]">
-          {points}pt
+        <div className="mb-1 min-w-[92px] rounded-full border border-[#c9a86a]/25 bg-[#111827] px-4 py-2 text-center text-sm font-black text-[#d8c08a]">
+          {points.toLocaleString()}pt
         </div>
       </div>
 
       <div className="space-y-3">
-        <MenuCard sub="Partner Items" title="購入" description="パートナーの出品を買う" tone="buy" onClick={() => setPage("buy")} />
-        <MenuCard sub="Sell Item" title="出品" description="報酬アイテムを並べる" tone="sell" onClick={() => setPage("sell")} />
+        <MenuCard
+          sub="Partner Items"
+          title="購入"
+          description="パートナーの出品を買う"
+          tone="buy"
+          onClick={() => setPage("buy")}
+        />
+        <MenuCard
+          sub="Sell Item"
+          title="出品"
+          description="報酬アイテムを並べる"
+          tone="sell"
+          onClick={() => setPage("sell")}
+        />
       </div>
     </section>
   );
@@ -148,23 +176,27 @@ function MenuCard({
   onClick: () => void;
 }) {
   const isBuy = tone === "buy";
+
   return (
     <button
       onClick={onClick}
-      className={`relative flex w-full items-center justify-between gap-4 overflow-hidden rounded-3xl border p-5 text-left shadow-xl ${
+      className={`group relative flex w-full items-center justify-between gap-4 overflow-hidden rounded-3xl border p-5 text-left shadow-xl transition active:scale-[0.99] ${
         isBuy
-          ? "border-orange-300/35 bg-gradient-to-br from-[#3a2109] via-[#181621] to-[#111827]"
-          : "border-purple-300/35 bg-gradient-to-br from-[#2b1238] via-[#181621] to-[#111827]"
+          ? "border-orange-200/35 bg-gradient-to-br from-[#3a1d05] via-[#1b1520] to-[#0c1424]"
+          : "border-purple-200/35 bg-gradient-to-br from-[#281135] via-[#171527] to-[#0c1424]"
       }`}
     >
-      <span className="pointer-events-none absolute inset-1 rounded-[20px] border border-white/5" />
+      <div className="pointer-events-none absolute inset-1 rounded-[20px] border border-white/5" />
+      <div className="pointer-events-none absolute -right-10 -top-12 h-28 w-28 rounded-full bg-white/5 blur-2xl" />
+
       <div className="relative min-w-0">
         <p className="text-sm font-bold text-[#d8c08a]">{sub}</p>
-        <h3 className="mt-2 font-title text-4xl font-black leading-none">{title}</h3>
+        <h3 className="mt-2 font-title text-4xl font-black leading-none text-white">{title}</h3>
         <p className="mt-2 text-sm text-gray-300">{description}</p>
       </div>
+
       <div className={`relative grid h-20 w-20 shrink-0 place-items-center rounded-2xl border bg-[#111827]/80 shadow-inner ${isBuy ? "border-orange-200/35 text-orange-200" : "border-purple-200/35 text-purple-200"}`}>
-        {isBuy ? <GuildCrestIcon className="h-14 w-14" /> : <GuildChestIcon className="h-14 w-14" />}
+        {isBuy ? <GuildShopIcon className="h-14 w-14" /> : <SellDeliveryIcon className="h-14 w-14" />}
       </div>
       <span className="relative text-3xl text-[#d8c08a]">›</span>
     </button>
@@ -182,7 +214,7 @@ function PageHeader({ title, sub, right, onBack }: { title: string; sub: string;
           <p className="text-sm font-bold text-[#d8c08a]">{sub}</p>
           <h2 className="mt-1 font-title text-4xl font-black leading-none">{title}</h2>
         </div>
-        <div className="mb-1 rounded-full border border-[#c9a86a]/25 bg-[#111827] px-4 py-2 text-sm font-black text-[#d8c08a]">{right}</div>
+        <div className="mb-1 min-w-[92px] rounded-full border border-[#c9a86a]/25 bg-[#111827] px-4 py-2 text-center text-sm font-black text-[#d8c08a]">{right}</div>
       </div>
     </div>
   );
@@ -199,38 +231,4 @@ function InputBlock({ label, children }: { label: string; children: React.ReactN
 
 function EmptyCard({ text }: { text: string }) {
   return <div className="rounded-3xl border border-[#c9a86a]/10 bg-[#1f2937] p-7 text-center text-gray-400">{text}</div>;
-}
-
-function GuildCrestIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 64 64" className={className} fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M32 4l8 10 13 1-2 13 8 10-12 6-4 13-11-7-11 7-4-13-12-6 8-10-2-13 13-1 8-10z" fill="currentColor" opacity="0.16" />
-      <path d="M32 8l7 11 13 2-7 10 2 13-12-5-12 5 2-13-7-10 13-2 7-11z" />
-      <path d="M23 34l9-18 9 18-9 10-9-10z" />
-      <path d="M16 47l8-6M48 47l-8-6M20 22l-8-7M44 22l8-7" />
-    </svg>
-  );
-}
-
-function GuildChestIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 64 64" className={className} fill="none" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 28h40v24H12z" fill="currentColor" opacity="0.13" />
-      <path d="M14 28c2-10 9-16 18-16s16 6 18 16" />
-      <path d="M12 28h40v24H12zM12 36h40M24 28v24M40 28v24" />
-      <path d="M28 38h8v8h-8z" fill="currentColor" opacity="0.22" />
-      <path d="M20 18l-8-6M44 18l8-6M32 12V5" />
-    </svg>
-  );
-}
-
-function VoucherIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 64 64" className={className} fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M18 10h22l6 6v38H18z" fill="currentColor" opacity="0.12" />
-      <path d="M40 10v10h10" />
-      <path d="M24 27h18M24 35h14M24 43h18" />
-      <path d="M13 18l-6 6 8 8M51 42l6-6-8-8" />
-    </svg>
-  );
 }

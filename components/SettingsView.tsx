@@ -357,96 +357,72 @@ export function SettingsView({
   }
 
   if (settingsPage === "account") {
-    const hr = Math.floor((profile?.total_points ?? 0) / 200) + 1;
-    const rank = getHunterRank(hr);
-    const acceptedCompleted = quests.filter(
-      (quest) => quest.status === "completed" && quest.accepted_by === user.id
-    );
-    const completedCount = acceptedCompleted.length;
-    const normalCompleted = acceptedCompleted.filter(
-      (quest) => !quest.is_urgent && quest.category !== "毎日"
-    ).length;
-    const urgentCompleted = acceptedCompleted.filter((quest) => quest.is_urgent).length;
-    const dailyCompleted = acceptedCompleted.filter((quest) => quest.category === "毎日").length;
-    const requestedCount = quests.filter((quest) => quest.created_by === user.id).length;
-    const acceptedCount = quests.filter((quest) => quest.accepted_by === user.id).length;
-    const earnedPoints = acceptedCompleted.reduce(
-      (sum, quest) => sum + (quest.points ?? 20),
-      0
-    );
+    const totalPoints = profile?.total_points ?? 0;
+    const currentPoints = profile?.points ?? 0;
+    const hunterRank = Math.floor(totalPoints / 200) + 1;
+    const rankTheme = getRankTheme(hunterRank);
+    const myQuests = quests.filter((quest) => quest.created_by === user.id || quest.accepted_by === user.id);
+    const completedQuests = myQuests.filter((quest) => quest.status === "done" || quest.status === "completed");
+    const acceptedCompletedQuests = completedQuests.filter((quest) => quest.accepted_by === user.id);
+    const requestedQuests = quests.filter((quest) => quest.created_by === user.id);
+    const acceptedQuests = quests.filter((quest) => quest.accepted_by === user.id);
+    const normalCompleted = acceptedCompletedQuests.filter((quest) => !quest.is_urgent && quest.category !== "毎日");
+    const urgentCompleted = acceptedCompletedQuests.filter((quest) => quest.is_urgent);
+    const dailyCompleted = acceptedCompletedQuests.filter((quest) => quest.category === "毎日");
 
     return (
       <SettingsPanel title="ギルドカード" onBack={() => setSettingsPage(null)}>
-        <div className={`relative overflow-hidden rounded-[28px] border ${rank.border} ${rank.bg} p-4 shadow-2xl`}>
-          <div className="pointer-events-none absolute inset-1 rounded-[23px] border border-white/5" />
-          <div className={`pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full ${rank.glow} blur-3xl`} />
-
-          <div className="relative border-b border-[#c9a86a]/20 pb-3 text-center">
-            <p className={`font-title text-lg font-black tracking-[0.22em] ${rank.text}`}>GUILD CARD</p>
+        <div className={`relative overflow-hidden rounded-[2rem] border bg-gradient-to-br p-4 shadow-2xl ${rankTheme.cardClass}`}>
+          <div className="pointer-events-none absolute inset-0 opacity-25" style={{ backgroundImage: "radial-gradient(circle at 20% 15%, rgba(255,255,255,.16), transparent 26%), radial-gradient(circle at 80% 0%, rgba(255,255,255,.10), transparent 24%)" }} />
+          <div className="relative flex items-center justify-between border-b border-current/20 pb-3">
+            <div>
+              <p className="text-xs font-black tracking-[0.35em] opacity-70">GUILD CARD</p>
+              <h2 className="font-title text-3xl font-black">狩人記録</h2>
+            </div>
+            <div className={`rounded-2xl border px-3 py-1 text-xs font-black ${rankTheme.badgeClass}`}>{rankTheme.name}</div>
           </div>
 
           <div className="relative mt-4 flex items-center gap-4">
-            <div
-              className="grid h-24 w-24 shrink-0 place-items-center rounded-full p-[5px] shadow-xl"
-              style={{ background: `conic-gradient(${rank.color} 100%, #2b3445 0)` }}
-            >
-              <div className="grid h-full w-full place-items-center rounded-full border border-white/10 bg-[#07111f]">
-                <div className="text-center leading-none">
-                  <p className={`text-xs font-black ${rank.text}`}>HR</p>
-                  <p className="mt-1 font-title text-4xl font-black text-white">{hr}</p>
-                </div>
+            <div className={`grid h-24 w-24 shrink-0 place-items-center rounded-full border-4 bg-black/35 shadow-inner ${rankTheme.ringClass}`}>
+              <div className="text-center">
+                <p className="text-xs font-black text-[#d8c08a]">HR</p>
+                <p className="font-title text-4xl font-black">{hunterRank}</p>
               </div>
             </div>
-
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-black text-[#d8c08a]/80">ハンター名</p>
+              <p className="text-xs font-bold text-[#d8c08a]">ハンター名</p>
               <div className="mt-1 flex items-center gap-2">
-                <p className="min-w-0 flex-1 truncate font-title text-2xl font-black text-white">
-                  {profile?.hunter_name || "テストハンター"}
-                </p>
-                <span className={`rounded-xl border ${rank.border} px-2 py-1 text-xs font-black ${rank.text}`}>
-                  {rank.name}
-                </span>
+                <input
+                  value={hunterName}
+                  onChange={(e) => setHunterName(e.target.value)}
+                  className="min-w-0 flex-1 rounded-2xl border border-[#c9a86a]/20 bg-black/25 px-3 py-3 font-black outline-none"
+                />
+                <button onClick={saveHunterName} className="rounded-2xl border border-[#c9a86a]/30 bg-[#1f2937]/80 px-3 py-3 text-sm font-black text-[#d8c08a]">保存</button>
               </div>
-              <p className="mt-2 text-sm font-bold text-gray-300">称号：{rank.title}</p>
+              <p className="mt-2 text-sm font-bold opacity-80">称号：{rankTheme.title}</p>
             </div>
           </div>
 
           <div className="relative mt-4 grid grid-cols-2 gap-3">
-            <GuildStat label="所持ポイント" value={`${profile?.points ?? 0} pt`} emphasis />
-            <GuildStat label="累計獲得ポイント" value={`${profile?.total_points ?? 0} pt`} emphasis />
+            <GuildStat label="所持ポイント" value={`${currentPoints.toLocaleString()} pt`} />
+            <GuildStat label="累計獲得ポイント" value={`${totalPoints.toLocaleString()} pt`} />
           </div>
 
-          <div className="relative mt-4 rounded-2xl border border-[#c9a86a]/15 bg-black/20 p-4">
-            <p className={`mb-3 font-title text-lg font-black ${rank.text}`}>クエスト記録</p>
+          <div className="relative mt-4 rounded-3xl border border-[#c9a86a]/15 bg-black/25 p-4">
+            <p className="mb-3 text-sm font-black text-[#d8c08a]">クエスト記録</p>
             <div className="space-y-2">
-              <RecordLine label="完了クエスト数" value={`${completedCount} 回`} />
-              <RecordLine label="通常クエスト達成数" value={`${normalCompleted} 回`} />
-              <RecordLine label="緊急クエスト達成数" value={`${urgentCompleted} 回`} />
-              <RecordLine label="毎日クエスト達成数" value={`${dailyCompleted} 回`} />
-              <RecordLine label="依頼した数" value={`${requestedCount} 回`} />
-              <RecordLine label="受注した数" value={`${acceptedCount} 回`} />
-              <RecordLine label="合計獲得pt" value={`${earnedPoints} pt`} />
-            </div>
-          </div>
-
-          <div className="relative mt-5 rounded-2xl border border-[#c9a86a]/15 bg-[#07111f]/70 p-4">
-            <label className="block text-sm font-bold text-[#d8c08a]">ハンター名を変更</label>
-            <div className="mt-3 flex gap-2">
-              <input
-                value={hunterName}
-                onChange={(e) => setHunterName(e.target.value)}
-                className="min-w-0 flex-1 rounded-2xl border border-[#c9a86a]/15 bg-[#1f2937] p-3 outline-none"
-              />
-              <button
-                onClick={saveHunterName}
-                className={`shrink-0 rounded-2xl border ${rank.border} px-4 font-black ${rank.text} bg-black/20`}
-              >
-                保存
-              </button>
+              <GuildRecord label="完了クエスト数" value={`${acceptedCompletedQuests.length} 回`} />
+              <GuildRecord label="通常クエスト達成数" value={`${normalCompleted.length} 回`} />
+              <GuildRecord label="緊急クエスト達成数" value={`${urgentCompleted.length} 回`} />
+              <GuildRecord label="毎日クエスト達成数" value={`${dailyCompleted.length} 回`} />
+              <GuildRecord label="依頼した数" value={`${requestedQuests.length} 回`} />
+              <GuildRecord label="受注した数" value={`${acceptedQuests.length} 回`} />
+              <GuildRecord label="合計獲得pt" value={`${totalPoints.toLocaleString()} pt`} />
             </div>
           </div>
         </div>
+
+        <p className="mt-4 text-center text-xs font-bold text-gray-400">HRが上がるとギルドカードの色と称号が変化します。</p>
       </SettingsPanel>
     );
   }
@@ -522,76 +498,66 @@ function MenuButton({
 }
 
 
-function getHunterRank(hr: number) {
+function getRankTheme(hr: number) {
   if (hr >= 100) {
     return {
-      name: "Legend",
-      title: "伝説の家事ハンター",
-      color: "#ef4b7b",
-      text: "text-rose-200",
-      border: "border-rose-300/45",
-      bg: "bg-gradient-to-b from-[#2a0e1a] via-[#111827] to-[#080d18]",
-      glow: "bg-rose-400/25",
+      name: "LEGEND",
+      title: "Legend Hunter",
+      cardClass: "from-[#2b1024] via-[#111827] to-[#0b1020] border-[#e879f9]/60 text-[#fce7f3]",
+      ringClass: "border-[#e879f9] text-[#f0abfc]",
+      badgeClass: "border-[#e879f9]/60 bg-[#701a75]/50 text-[#f0abfc]",
     };
   }
   if (hr >= 50) {
     return {
-      name: "Platinum",
-      title: "蒼天の家事ハンター",
-      color: "#64c9f5",
-      text: "text-sky-200",
-      border: "border-sky-300/45",
-      bg: "bg-gradient-to-b from-[#0d2635] via-[#111827] to-[#080d18]",
-      glow: "bg-sky-400/20",
+      name: "PLATINUM",
+      title: "Platinum Hunter",
+      cardClass: "from-[#082f49] via-[#111827] to-[#0b1020] border-[#7dd3fc]/60 text-[#e0f2fe]",
+      ringClass: "border-[#7dd3fc] text-[#bae6fd]",
+      badgeClass: "border-[#7dd3fc]/60 bg-[#0c4a6e]/50 text-[#bae6fd]",
     };
   }
   if (hr >= 30) {
     return {
-      name: "Gold",
-      title: "黄金の家事ハンター",
-      color: "#f2c94c",
-      text: "text-yellow-200",
-      border: "border-yellow-300/45",
-      bg: "bg-gradient-to-b from-[#2f2509] via-[#111827] to-[#080d18]",
-      glow: "bg-yellow-400/20",
+      name: "GOLD",
+      title: "Gold Hunter",
+      cardClass: "from-[#3f2f05] via-[#111827] to-[#0b1020] border-[#facc15]/60 text-[#fef9c3]",
+      ringClass: "border-[#facc15] text-[#fde68a]",
+      badgeClass: "border-[#facc15]/60 bg-[#713f12]/50 text-[#fde68a]",
     };
   }
   if (hr >= 10) {
     return {
-      name: "Silver",
-      title: "白銀の家事ハンター",
-      color: "#c9d2dc",
-      text: "text-slate-200",
-      border: "border-slate-200/45",
-      bg: "bg-gradient-to-b from-[#202833] via-[#111827] to-[#080d18]",
-      glow: "bg-slate-300/15",
+      name: "SILVER",
+      title: "Silver Hunter",
+      cardClass: "from-[#374151] via-[#111827] to-[#0b1020] border-[#d1d5db]/60 text-[#f3f4f6]",
+      ringClass: "border-[#d1d5db] text-[#e5e7eb]",
+      badgeClass: "border-[#d1d5db]/60 bg-[#374151]/70 text-[#f3f4f6]",
     };
   }
   return {
-    name: "Bronze",
-    title: "駆け出し家事ハンター",
-    color: "#c47a32",
-    text: "text-orange-200",
-    border: "border-orange-300/40",
-    bg: "bg-gradient-to-b from-[#2c1a0d] via-[#111827] to-[#080d18]",
-    glow: "bg-orange-400/18",
+    name: "BRONZE",
+    title: "Bronze Hunter",
+    cardClass: "from-[#3b2412] via-[#111827] to-[#0b1020] border-[#c47a3b]/60 text-[#ffedd5]",
+    ringClass: "border-[#c47a3b] text-[#fdba74]",
+    badgeClass: "border-[#c47a3b]/60 bg-[#7c2d12]/40 text-[#fdba74]",
   };
 }
 
-function GuildStat({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
+function GuildStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-[#c9a86a]/15 bg-black/20 p-3 text-center">
-      <p className="text-[11px] font-bold text-[#d8c08a]/80">{label}</p>
-      <p className={`mt-1 font-title font-black ${emphasis ? "text-2xl text-[#f2d994]" : "text-xl text-white"}`}>{value}</p>
+    <div className="rounded-2xl border border-[#c9a86a]/15 bg-black/25 p-3">
+      <p className="text-[11px] font-bold text-[#d8c08a]">{label}</p>
+      <p className="mt-1 text-xl font-black">{value}</p>
     </div>
   );
 }
 
-function RecordLine({ label, value }: { label: string; value: string }) {
+function GuildRecord({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between border-b border-white/5 pb-2 last:border-b-0 last:pb-0">
+    <div className="flex items-center justify-between border-b border-[#c9a86a]/10 pb-2 last:border-b-0 last:pb-0">
       <span className="text-sm text-gray-300">{label}</span>
-      <span className="font-title text-lg font-black text-white">{value}</span>
+      <span className="font-black text-[#f3d58a]">{value}</span>
     </div>
   );
 }

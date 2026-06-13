@@ -73,10 +73,8 @@ type CreateQuestInput = {
   title: string;
   description: string;
   reward?: string;
-  points?: number;
   dueAt: string | null;
   isUrgent: boolean;
-  category?: string;
 };
 
 type AcceptableQuest = Quest | { id: string; title: string };
@@ -441,14 +439,12 @@ export default function Page() {
     title,
     description,
     reward,
-    points,
     dueAt,
     isUrgent,
-    category,
   }: CreateQuestInput) => {
     if (!user || !title.trim()) return;
 
-    const parsedPoints = Number(points ?? reward);
+    const parsedPoints = Number(reward);
     const questPoints = Number.isFinite(parsedPoints)
       ? parsedPoints
       : isUrgent
@@ -459,7 +455,7 @@ export default function Page() {
       {
         title,
         description,
-        category: category || "依頼",
+        category: "依頼",
         reward: `${questPoints}pt`,
         points: questPoints,
         due_at: dueAt,
@@ -656,14 +652,12 @@ export default function Page() {
     title,
     description,
     reward,
-    points,
     dueAt,
     isUrgent,
-    category,
   }: CreateQuestInput) => {
     if (!editingQuest) return;
 
-    const parsedPoints = Number(points ?? reward);
+    const parsedPoints = Number(reward);
     const questPoints = Number.isFinite(parsedPoints)
       ? parsedPoints
       : isUrgent
@@ -914,7 +908,7 @@ export default function Page() {
         className="transition-transform duration-200"
         style={{ transform: `translateX(${dragX}px)` }}
       >
-        <div className="mx-auto max-w-md px-4 pt-[94px]">
+        <div className="mx-auto max-w-md px-4 pt-[112px]">
           {message && (
             <div className="mb-4 rounded-2xl border border-[#c9a86a]/20 bg-[#111827] p-3 text-sm text-[#d8c08a]">
               {message}
