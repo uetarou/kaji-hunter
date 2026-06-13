@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 type CreateQuestInput = {
   title: string;
   description: string;
-  reward: string;
+  points: number;
   dueAt: string | null;
   isUrgent: boolean;
 };
@@ -20,9 +20,7 @@ export function RequestForm({ onCreate, onModalOpenChange }: Props) {
   const [modalType, setModalType] = useState<"normal" | "urgent" | null>(null);
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     onModalOpenChange?.(modalType !== null);
@@ -38,7 +36,7 @@ export function RequestForm({ onCreate, onModalOpenChange }: Props) {
       <div className="grid grid-cols-1 gap-4">
         <RequestTypeButton
           title="通常依頼"
-          description="日常の家事を依頼する"
+          description="日常の家事を20〜50ptで依頼する"
           label="NORMAL QUEST"
           tone="normal"
           onClick={() => setModalType("normal")}
@@ -46,7 +44,7 @@ export function RequestForm({ onCreate, onModalOpenChange }: Props) {
 
         <RequestTypeButton
           title="緊急依頼"
-          description="急ぎでお願いしたい家事を依頼する"
+          description="急ぎの家事を50〜100ptで依頼する"
           label="URGENT QUEST"
           tone="urgent"
           onClick={() => setModalType("urgent")}
@@ -119,24 +117,27 @@ function RequestModal({
   onClose: () => void;
   onCreate: (quest: CreateQuestInput) => void;
 }) {
+  const isUrgent = type === "urgent";
+  const minPoint = isUrgent ? 50 : 20;
+  const maxPoint = isUrgent ? 100 : 50;
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [dueTime, setDueTime] = useState("");
-  const [reward, setReward] = useState("");
-
-  const isUrgent = type === "urgent";
+  const [points, setPoints] = useState(minPoint);
 
   const submit = () => {
     if (!title.trim()) return;
 
+    const safePoints = Math.min(Math.max(points, minPoint), maxPoint);
     const dueAt =
       dueDate && dueTime ? new Date(`${dueDate}T${dueTime}`).toISOString() : null;
 
     onCreate({
       title,
       description,
-      reward,
+      points: safePoints,
       dueAt,
       isUrgent,
     });
@@ -150,11 +151,6 @@ function RequestModal({
             isUrgent ? "border-red-300/35" : "border-[#c9a86a]/35"
           }`}
         >
-          <Corner position="left-top" urgent={isUrgent} />
-          <Corner position="right-top" urgent={isUrgent} />
-          <Corner position="left-bottom" urgent={isUrgent} />
-          <Corner position="right-bottom" urgent={isUrgent} />
-
           <div className="shrink-0 border-b border-[#c9a86a]/15 px-5 pb-3 pt-4">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -222,17 +218,27 @@ function RequestModal({
                 </InputBlock>
               </div>
 
-              <InputBlock label="報酬">
-                <input
-                  placeholder="例：プリン / 肩もみ"
-                  value={reward}
-                  onChange={(e) => setReward(e.target.value)}
-                  className="w-full rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937]/90 px-4 py-3 text-sm outline-none"
-                />
+              <InputBlock label={`報酬ポイント（${minPoint}〜${maxPoint}pt）`}>
+                <div className="rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937]/90 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-sm text-gray-400">報酬</span>
+                    <span className="text-2xl font-black text-[#d8c08a]">{points} pt</span>
+                  </div>
+
+                  <input
+                    type="range"
+                    min={minPoint}
+                    max={maxPoint}
+                    step={5}
+                    value={points}
+                    onChange={(e) => setPoints(Number(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
               </InputBlock>
 
               <p className="pt-1 text-center text-[11px] text-gray-400">
-                ※ 依頼したクエストはパートナーのクエストボードに表示されます
+                ※ 承認されたら受注者にポイントが付与されます
               </p>
             </div>
           </div>
@@ -256,38 +262,11 @@ function RequestModal({
   );
 }
 
-function InputBlock({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function InputBlock({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block min-w-0">
       <p className="mb-1 text-xs font-black text-[#d8c08a]">{label}</p>
       {children}
     </label>
   );
-}
-
-function Corner({
-  position,
-  urgent,
-}: {
-  position: "left-top" | "right-top" | "left-bottom" | "right-bottom";
-  urgent: boolean;
-}) {
-  const base = urgent ? "border-red-300/60" : "border-[#c9a86a]/60";
-
-  const pos =
-    position === "left-top"
-      ? "left-2 top-2 rounded-tl-2xl border-l-2 border-t-2"
-      : position === "right-top"
-      ? "right-2 top-2 rounded-tr-2xl border-r-2 border-t-2"
-      : position === "left-bottom"
-      ? "bottom-2 left-2 rounded-bl-2xl border-b-2 border-l-2"
-      : "bottom-2 right-2 rounded-br-2xl border-b-2 border-r-2";
-
-  return <div className={`pointer-events-none absolute h-8 w-8 ${pos} ${base}`} />;
 }

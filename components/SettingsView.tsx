@@ -1,21 +1,10 @@
 "use client";
 
-import { Bell, ChevronLeft, Copy, Shield, UserRound, Users } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { PushNotificationButton } from "@/components/PushNotificationButton";
-import type { Notification, NotificationSettings, Profile } from "@/app/page";
-
-type PartnerRequest = {
-  id: string;
-  requester_id: string;
-  receiver_id: string;
-  status: "pending" | "accepted" | "rejected" | "cancelled";
-  created_at: string | null;
-  requester?: Profile | null;
-  receiver?: Profile | null;
-};
+import type { NotificationSettings, PartnerRequest, Profile } from "@/app/page";
 
 export function SettingsView({
   user,
@@ -25,7 +14,6 @@ export function SettingsView({
   setPartnerProfile,
   settingsPage,
   setSettingsPage,
-  notifications,
   notificationSettings,
   setNotificationSettings,
   reloadAll,
@@ -38,15 +26,12 @@ export function SettingsView({
   setPartnerProfile: (profile: Profile | null) => void;
   settingsPage: string | null;
   setSettingsPage: (page: string | null) => void;
-  notifications: Notification[];
   notificationSettings: NotificationSettings | null;
   setNotificationSettings: (settings: NotificationSettings | null) => void;
   reloadAll: () => void;
   setMessage: (message: string) => void;
 }) {
-  const [hunterName, setHunterName] = useState(
-    profile?.hunter_name || "テストハンター"
-  );
+  const [hunterName, setHunterName] = useState(profile?.hunter_name || "テストハンター");
   const [partnerCode, setPartnerCode] = useState("");
   const [incomingRequests, setIncomingRequests] = useState<PartnerRequest[]>([]);
   const [outgoingRequests, setOutgoingRequests] = useState<PartnerRequest[]>([]);
@@ -56,172 +41,85 @@ export function SettingsView({
   }, [profile?.hunter_name]);
 
   useEffect(() => {
-    if (settingsPage === "partner") {
-      fetchPartnerRequests();
-    }
+    if (settingsPage === "partner") fetchPartnerRequests();
   }, [settingsPage, user.id]);
 
   const generateInviteCode = (userId: string) => userId.slice(0, 8).toUpperCase();
 
-  const createNotification = async (
-    userId: string,
-    title: string,
-    message: string
-  ) => {
+  const createNotification = async (userId: string, title: string, message: string) => {
     await supabase.from("notifications").insert([
-      {
-        user_id: userId,
-        title,
-        message,
-        is_read: false,
-      },
+      { user_id: userId, title, message, is_read: false },
     ]);
+
+    try {
+      await fetch("/api/send-push", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, title, message }),
+      });
+    } catch {}
   };
 
   const fetchPartnerRequests = async () => {
     const { data: incoming } = await supabase
       .from("partner_requests")
-      .select("*")
+      .select("*, requester:profiles!partner_requests_requester_id_fkey(*)")
       .eq("receiver_id", user.id)
       .eq("status", "pending")
       .order("created_at", { ascending: false });
 
     const { data: outgoing } = await supabase
       .from("partner_requests")
-      .select("*")
+      .select("*, receiver:profiles!partner_requests_receiver_id_fkey(*)")
       .eq("requester_id", user.id)
       .eq("status", "pending")
       .order("created_at", { ascending: false });
 
-    const requesterIds = (incoming || []).map((r) => r.requester_id);
-    const receiverIds = (outgoing || []).map((r) => r.receiver_id);
-    const ids = Array.from(new Set([...requesterIds, ...receiverIds]));
-
-    let profiles: Profile[] = [];
-
-    if (ids.length > 0) {
-      const { data } = await supabase.from("profiles").select("*").in("id", ids);
-      profiles = data || [];
-    }
-
-    const findProfile = (id: string) => profiles.find((p) => p.id === id) || null;
-
-    setIncomingRequests(
-      (incoming || []).map((request) => ({
-        ...request,
-        requester: findProfile(request.requester_id),
-      }))
-    );
-
-    setOutgoingRequests(
-      (outgoing || []).map((request) => ({
-        ...request,
-        receiver: findProfile(request.receiver_id),
-      }))
-    );
+    setIncomingRequests((incoming || []) as PartnerRequest[]);
+    setOutgoingRequests((outgoing || []) as PartnerRequest[]);
   };
 
-  const saveProfile = async () => {
-    const nextProfile = {
-      id: user.id,
-      hunter_name: hunterName.trim() || "テストハンター",
-      hr: profile?.hr || 1,
-      invite_code: profile?.invite_code || generateInviteCode(user.id),
-      partner_id: profile?.partner_id || null,
-    };
+  const saveHunterName = async () => {
+    const name = hunterName.trim();
+    if (!name) return;
 
     const { data, error } = await supabase
       .from("profiles")
-      .upsert([nextProfile], { onConflict: "id" })
+      .update({ hunter_name: name })
+      .eq("id", user.id)
       .select()
       .single();
 
     if (error) {
-      setMessage(`プロフィール保存に失敗しました: ${error.message}`);
+      setMessage(`保存に失敗しました: ${error.message}`);
       return;
     }
 
     setProfile(data);
-    setMessage("プロフィールを保存しました。");
-    await reloadAll();
+    setMessage("ハンター名を保存しました。");
   };
 
-  const ensureInviteCode = async () => {
-    if (profile?.invite_code) return profile.invite_code;
-
-    const inviteCode = generateInviteCode(user.id);
-
-    const nextProfile = {
-      id: user.id,
-      hunter_name: profile?.hunter_name || hunterName || "テストハンター",
-      hr: profile?.hr || 1,
-      invite_code: inviteCode,
-      partner_id: profile?.partner_id || null,
-    };
-
-    const { data, error } = await supabase
-      .from("profiles")
-      .upsert([nextProfile], { onConflict: "id" })
-      .select()
-      .single();
-
-    if (error) {
-      setMessage(`招待コード作成に失敗しました: ${error.message}`);
-      return "";
-    }
-
-    setProfile(data);
-    return inviteCode;
-  };
-
-  const copyInviteCode = async () => {
-    const code = await ensureInviteCode();
-    if (!code) return;
-
-    await navigator.clipboard.writeText(code);
-    setMessage("招待コードをコピーしました。");
-  };
-
-  const sendPartnerRequest = async () => {
-    const myCode = await ensureInviteCode();
+  const requestPartner = async () => {
     const code = partnerCode.trim().toUpperCase();
 
     if (!code) {
-      setMessage("相手の招待コードを入力してください。");
+      setMessage("招待コードを入力してください。");
       return;
     }
 
-    if (code === myCode) {
-      setMessage("自分の招待コードは入力できません。");
+    if (code === generateInviteCode(user.id)) {
+      setMessage("自分の招待コードは使えません。");
       return;
     }
 
-    const { data: partner, error: findError } = await supabase
+    const { data: partner, error: partnerError } = await supabase
       .from("profiles")
       .select("*")
       .eq("invite_code", code)
       .maybeSingle();
 
-    if (findError || !partner) {
-      setMessage("招待コードが見つかりませんでした。");
-      return;
-    }
-
-    if (profile?.partner_id || partner.partner_id) {
-      setMessage("どちらかが既にパートナー連携済みです。");
-      return;
-    }
-
-    const { data: existing } = await supabase
-      .from("partner_requests")
-      .select("*")
-      .eq("requester_id", user.id)
-      .eq("receiver_id", partner.id)
-      .eq("status", "pending")
-      .maybeSingle();
-
-    if (existing) {
-      setMessage("すでに申請中です。");
+    if (partnerError || !partner) {
+      setMessage("パートナーが見つかりません。");
       return;
     }
 
@@ -241,148 +139,74 @@ export function SettingsView({
     await createNotification(
       partner.id,
       "パートナー申請",
-      `${profile?.hunter_name || "ハンター"} からパートナー申請が届きました。`
+      `${profile?.hunter_name || "相手"} からパートナー申請が届いています。`
     );
 
     setPartnerCode("");
-    setMessage("パートナー申請を送りました。");
     await fetchPartnerRequests();
+    setMessage("パートナー申請を送りました。");
   };
 
-  const approvePartnerRequest = async (request: PartnerRequest) => {
-    const { error: myError } = await supabase
-      .from("profiles")
-      .update({ partner_id: request.requester_id })
-      .eq("id", user.id);
+  const approveRequest = async (request: PartnerRequest) => {
+    const requesterId = request.requester_id;
 
-    if (myError) {
-      setMessage(`承認に失敗しました: ${myError.message}`);
-      return;
-    }
-
-    const { error: partnerError } = await supabase
-      .from("profiles")
-      .update({ partner_id: user.id })
-      .eq("id", request.requester_id);
-
-    if (partnerError) {
-      setMessage(`相手側の連携に失敗しました: ${partnerError.message}`);
-      return;
-    }
-
-    await supabase
+    const { error } = await supabase
       .from("partner_requests")
       .update({ status: "accepted" })
       .eq("id", request.id);
 
+    if (error) {
+      setMessage(`承認に失敗しました: ${error.message}`);
+      return;
+    }
+
+    await supabase.from("profiles").update({ partner_id: requesterId }).eq("id", user.id);
+    await supabase.from("profiles").update({ partner_id: user.id }).eq("id", requesterId);
+
     await createNotification(
-      request.requester_id,
+      requesterId,
       "パートナー承認",
-      `${profile?.hunter_name || "ハンター"} がパートナー申請を承認しました。`
+      `${profile?.hunter_name || "相手"} がパートナー申請を承認しました。`
     );
 
-    setMessage("パートナー申請を承認しました。");
-    await fetchPartnerRequests();
     await reloadAll();
+    await fetchPartnerRequests();
+    setMessage("パートナー申請を承認しました。");
   };
 
-  const rejectPartnerRequest = async (request: PartnerRequest) => {
-    await supabase
-      .from("partner_requests")
-      .update({ status: "rejected" })
-      .eq("id", request.id);
-
-    await createNotification(
-      request.requester_id,
-      "パートナー申請却下",
-      `${profile?.hunter_name || "ハンター"} がパートナー申請を見送りました。`
-    );
-
-    setMessage("パートナー申請を却下しました。");
+  const rejectRequest = async (request: PartnerRequest) => {
+    await supabase.from("partner_requests").update({ status: "rejected" }).eq("id", request.id);
     await fetchPartnerRequests();
+    setMessage("申請を拒否しました。");
   };
 
-  const cancelPartnerRequest = async (request: PartnerRequest) => {
-    await supabase
-      .from("partner_requests")
-      .update({ status: "cancelled" })
-      .eq("id", request.id);
-
-    setMessage("パートナー申請を取り消しました。");
+  const cancelRequest = async (request: PartnerRequest) => {
+    await supabase.from("partner_requests").update({ status: "cancelled" }).eq("id", request.id);
     await fetchPartnerRequests();
+    setMessage("申請を取り消しました。");
   };
 
   const disconnectPartner = async () => {
-    const currentPartnerId = profile?.partner_id || partnerProfile?.id;
+    if (!profile?.partner_id) return;
 
-    const { error: myError } = await supabase
-      .from("profiles")
-      .update({ partner_id: null })
-      .eq("id", user.id);
+    const oldPartnerId = profile.partner_id;
 
-    if (myError) {
-      setMessage(`連携解除に失敗しました: ${myError.message}`);
-      return;
-    }
-
-    if (currentPartnerId) {
-      await supabase
-        .from("profiles")
-        .update({ partner_id: null })
-        .eq("id", currentPartnerId);
-
-      await createNotification(
-        currentPartnerId,
-        "パートナー解除",
-        `${profile?.hunter_name || "ハンター"} がパートナー連携を解除しました。`
-      );
-    }
+    await supabase.from("profiles").update({ partner_id: null }).eq("id", user.id);
+    await supabase.from("profiles").update({ partner_id: null }).eq("id", oldPartnerId);
 
     setPartnerProfile(null);
+    await reloadAll();
     setMessage("パートナー連携を解除しました。");
-    await reloadAll();
   };
 
-  const markAllNotificationsRead = async () => {
-    const { error } = await supabase
-      .from("notifications")
-      .update({ is_read: true })
-      .eq("user_id", user.id);
+  const toggleNotificationSetting = async (key: keyof NotificationSettings) => {
+    if (!notificationSettings || key === "user_id") return;
 
-    if (error) {
-      setMessage(`既読処理に失敗しました: ${error.message}`);
-      return;
-    }
-
-    setMessage("通知をすべて既読にしました。");
-    await reloadAll();
-  };
-
-  const toggleNotificationSetting = async (
-    key:
-      | "quest_created"
-      | "quest_accepted"
-      | "quest_reported"
-      | "quest_approved"
-  ) => {
-    const baseSettings = notificationSettings || {
-      user_id: user.id,
-      quest_created: true,
-      quest_accepted: true,
-      quest_reported: true,
-      quest_approved: true,
-    };
-
-    const updated = {
-      ...baseSettings,
-      [key]: !baseSettings[key],
-    };
-
-    setNotificationSettings(updated);
+    const next = { ...notificationSettings, [key]: !notificationSettings[key] };
 
     const { data, error } = await supabase
       .from("notification_settings")
-      .upsert([updated], { onConflict: "user_id" })
+      .upsert([next], { onConflict: "user_id" })
       .select()
       .single();
 
@@ -392,148 +216,103 @@ export function SettingsView({
     }
 
     setNotificationSettings(data);
-    setMessage("通知設定を保存しました。");
-    await reloadAll();
   };
-
-  if (settingsPage === "account") {
-    return (
-      <SettingsPanel title="アカウント" onBack={() => setSettingsPage(null)}>
-        <label className="block">
-          <p className="mb-2 text-sm font-bold text-[#d8c08a]">ハンター名</p>
-          <input
-            value={hunterName}
-            onChange={(e) => setHunterName(e.target.value)}
-            className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none"
-          />
-        </label>
-
-        <button
-          onClick={saveProfile}
-          className="mt-5 w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-4 font-bold"
-        >
-          保存する
-        </button>
-      </SettingsPanel>
-    );
-  }
 
   if (settingsPage === "partner") {
     return (
       <SettingsPanel title="パートナー設定" onBack={() => setSettingsPage(null)}>
-        <div className="rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4">
-          <p className="text-sm text-gray-400">自分の招待コード</p>
-
-          <div className="mt-3 flex gap-3">
-            <div className="flex-1 rounded-2xl border border-[#c9a86a]/10 bg-[#111827] px-4 py-4 font-title text-xl font-black text-[#d8c08a]">
-              {profile?.invite_code || generateInviteCode(user.id)}
-            </div>
-
-            <button
-              onClick={copyInviteCode}
-              className="flex items-center justify-center gap-2 rounded-2xl border border-[#6e8fb4] bg-[#355e8d] px-4 font-bold"
-            >
-              <Copy size={18} />
-              コピー
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-4 rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4">
-          <p className="text-sm text-gray-400">現在のパートナー</p>
-          <p className="mt-2 text-xl font-bold">
-            {partnerProfile?.hunter_name || "未連携"}
-          </p>
-        </div>
-
-        {incomingRequests.length > 0 && (
-          <div className="mt-4 space-y-3">
-            <h3 className="font-title text-xl font-black text-[#d8c08a]">
-              承認待ち
-            </h3>
-
-            {incomingRequests.map((request) => (
-              <div
-                key={request.id}
-                className="rounded-2xl border border-emerald-300/20 bg-emerald-900/20 p-4"
+        <div className="space-y-5">
+          <div className="rounded-3xl border border-[#c9a86a]/10 bg-[#1f2937] p-4">
+            <p className="text-sm text-gray-400">自分の招待コード</p>
+            <div className="mt-3 flex gap-3">
+              <div className="flex-1 rounded-2xl bg-[#111827] p-4 font-title text-2xl font-black text-[#d8c08a]">
+                {profile?.invite_code || generateInviteCode(user.id)}
+              </div>
+              <button
+                onClick={() => navigator.clipboard.writeText(profile?.invite_code || generateInviteCode(user.id))}
+                className="rounded-2xl border border-[#6e8fb4] bg-[#355e8d] px-5 font-bold"
               >
-                <p className="font-bold">
-                  {request.requester?.hunter_name || "ハンター"} から申請
-                </p>
+                コピー
+              </button>
+            </div>
+          </div>
 
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => approvePartnerRequest(request)}
-                    className="rounded-2xl border border-emerald-300/30 bg-emerald-700 py-3 font-bold"
-                  >
-                    承認
-                  </button>
+          <div className="rounded-3xl border border-[#c9a86a]/10 bg-[#1f2937] p-4">
+            <p className="text-sm text-gray-400">現在のパートナー</p>
+            <p className="mt-3 text-2xl font-black">
+              {partnerProfile?.hunter_name || "未連携"}
+            </p>
+          </div>
 
+          {incomingRequests.length > 0 && (
+            <section className="space-y-3">
+              <h3 className="text-xl font-black text-[#d8c08a]">届いている申請</h3>
+              {incomingRequests.map((request) => (
+                <div key={request.id} className="rounded-3xl border border-[#c9a86a]/10 bg-[#1f2937] p-4">
+                  <p className="text-lg font-black">
+                    {request.requester?.hunter_name || "相手"} から申請
+                  </p>
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <button onClick={() => approveRequest(request)} className="rounded-2xl bg-emerald-800 py-3 font-bold">
+                      承認
+                    </button>
+                    <button onClick={() => rejectRequest(request)} className="rounded-2xl bg-red-900/50 py-3 font-bold text-red-100">
+                      拒否
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </section>
+          )}
+
+          {outgoingRequests.length > 0 && (
+            <section className="space-y-3">
+              <h3 className="text-xl font-black text-[#d8c08a]">申請中</h3>
+              {outgoingRequests.map((request) => (
+                <div key={request.id} className="rounded-3xl border border-[#c9a86a]/10 bg-[#1f2937] p-4">
+                  <p className="text-lg font-black">
+                    {request.receiver?.hunter_name || "相手"} に申請中
+                  </p>
                   <button
-                    onClick={() => rejectPartnerRequest(request)}
-                    className="rounded-2xl border border-red-300/30 bg-red-900/50 py-3 font-bold text-red-100"
+                    onClick={() => cancelRequest(request)}
+                    className="mt-4 w-full rounded-2xl bg-red-900/50 py-3 font-bold text-red-100"
                   >
-                    却下
+                    申請を取り消す
                   </button>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </section>
+          )}
 
-        {outgoingRequests.length > 0 && (
-          <div className="mt-4 space-y-3">
-            <h3 className="font-title text-xl font-black text-[#d8c08a]">
-              申請中
-            </h3>
-
-            {outgoingRequests.map((request) => (
-              <div
-                key={request.id}
-                className="rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4"
+          {!profile?.partner_id && (
+            <div className="space-y-3">
+              <label className="block text-sm font-bold text-[#d8c08a]">
+                パートナー招待コード
+              </label>
+              <input
+                value={partnerCode}
+                onChange={(e) => setPartnerCode(e.target.value)}
+                placeholder="招待コードを入力"
+                className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none"
+              />
+              <button
+                onClick={requestPartner}
+                className="w-full rounded-2xl border border-emerald-300/30 bg-emerald-800 py-4 font-black"
               >
-                <p className="font-bold">
-                  {request.receiver?.hunter_name || "ハンター"} に申請中
-                </p>
+                パートナー申請を送る
+              </button>
+            </div>
+          )}
 
-                <button
-                  onClick={() => cancelPartnerRequest(request)}
-                  className="mt-3 w-full rounded-2xl border border-red-300/30 bg-red-900/50 py-3 font-bold text-red-100"
-                >
-                  申請を取り消す
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <label className="mt-4 block">
-          <p className="mb-2 text-sm font-bold text-[#d8c08a]">
-            パートナー招待コード
-          </p>
-          <input
-            placeholder="招待コードを入力"
-            value={partnerCode}
-            onChange={(e) => setPartnerCode(e.target.value)}
-            className="w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 uppercase outline-none"
-          />
-        </label>
-
-        <button
-          onClick={sendPartnerRequest}
-          className="mt-4 w-full rounded-2xl border border-emerald-300/30 bg-emerald-700 py-4 font-bold"
-        >
-          パートナー申請を送る
-        </button>
-
-        {(profile?.partner_id || partnerProfile?.id) && (
-          <button
-            onClick={disconnectPartner}
-            className="mt-4 w-full rounded-2xl border border-red-300/30 bg-red-900/50 py-4 font-bold text-red-100"
-          >
-            パートナー連携を解除する
-          </button>
-        )}
+          {!!profile?.partner_id && (
+            <button
+              onClick={disconnectPartner}
+              className="w-full rounded-2xl border border-red-300/30 bg-red-900/50 py-4 font-bold text-red-100"
+            >
+              パートナー連携を解除する
+            </button>
+          )}
+        </div>
       </SettingsPanel>
     );
   }
@@ -571,31 +350,25 @@ export function SettingsView({
             onClick={() => toggleNotificationSetting("quest_approved")}
           />
         </div>
+      </SettingsPanel>
+    );
+  }
 
+  if (settingsPage === "account") {
+    return (
+      <SettingsPanel title="アカウント" onBack={() => setSettingsPage(null)}>
+        <label className="block text-sm font-bold text-[#d8c08a]">ハンター名</label>
+        <input
+          value={hunterName}
+          onChange={(e) => setHunterName(e.target.value)}
+          className="mt-3 w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none"
+        />
         <button
-          onClick={markAllNotificationsRead}
-          className="mt-5 w-full rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937] py-3 text-sm font-bold text-[#d8c08a]"
+          onClick={saveHunterName}
+          className="mt-4 w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-4 font-bold"
         >
-          すべて既読にする
+          保存する
         </button>
-
-        <div className="mt-5 space-y-3">
-          <h3 className="font-title text-xl font-black">通知履歴</h3>
-
-          {notifications.length === 0 && <EmptyCard text="通知はありません" />}
-
-          {notifications.map((notification) => (
-            <div
-              key={notification.id}
-              className="rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4"
-            >
-              <h3 className="font-bold">{notification.title}</h3>
-              <p className="mt-1 text-sm text-gray-400">
-                {notification.message}
-              </p>
-            </div>
-          ))}
-        </div>
       </SettingsPanel>
     );
   }
@@ -604,12 +377,8 @@ export function SettingsView({
     return (
       <SettingsPanel title="利用規約" onBack={() => setSettingsPage(null)}>
         <div className="space-y-3 text-sm leading-7 text-gray-300">
-          <p>
-            Kaji Hunterは、パートナー間で家事クエストを依頼・受注・報告するためのアプリです。
-          </p>
-          <p>
-            報酬や達成条件は、利用者同士で合意した範囲で楽しく運用してください。
-          </p>
+          <p>Kaji Hunterは、パートナー間で家事クエストを依頼・受注・報告するためのアプリです。</p>
+          <p>報酬や達成条件は、利用者同士で合意した範囲で楽しく運用してください。</p>
         </div>
       </SettingsPanel>
     );
@@ -622,33 +391,10 @@ export function SettingsView({
         <h2 className="mt-1 font-title text-3xl font-black">設定</h2>
       </div>
 
-      <SettingCard
-        icon={<UserRound />}
-        title="アカウント"
-        description="ハンター名を変更"
-        onClick={() => setSettingsPage("account")}
-      />
-
-      <SettingCard
-        icon={<Users />}
-        title="パートナー設定"
-        description="招待コード・ギルド連携"
-        onClick={() => setSettingsPage("partner")}
-      />
-
-      <SettingCard
-        icon={<Bell />}
-        title="通知設定"
-        description="通知条件・ON/OFF・履歴"
-        onClick={() => setSettingsPage("notifications")}
-      />
-
-      <SettingCard
-        icon={<Shield />}
-        title="利用規約"
-        description="アプリ利用ルール"
-        onClick={() => setSettingsPage("terms")}
-      />
+      <MenuButton title="アカウント" description="ハンター名を変更" onClick={() => setSettingsPage("account")} />
+      <MenuButton title="パートナー設定" description="招待コード・申請・解除" onClick={() => setSettingsPage("partner")} />
+      <MenuButton title="通知設定" description="スマホ通知・通知種別" onClick={() => setSettingsPage("notifications")} />
+      <MenuButton title="利用規約" description="アプリ利用ルール" onClick={() => setSettingsPage("terms")} />
     </section>
   );
 }
@@ -666,26 +412,22 @@ function SettingsPanel({
     <section className="rounded-3xl border border-[#c9a86a]/15 bg-[#111827] p-5 shadow-xl">
       <button
         onClick={onBack}
-        className="mb-5 inline-flex items-center gap-2 rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937] px-4 py-2 text-sm font-bold text-[#d8c08a]"
+        className="mb-5 rounded-2xl border border-[#c9a86a]/15 bg-[#1f2937] px-4 py-3 text-sm font-bold text-[#d8c08a]"
       >
-        <ChevronLeft size={18} />
-        設定に戻る
+        ‹ 設定に戻る
       </button>
 
-      <h2 className="font-title text-3xl font-black">{title}</h2>
-
-      <div className="mt-5">{children}</div>
+      <h2 className="mb-5 font-title text-3xl font-black">{title}</h2>
+      {children}
     </section>
   );
 }
 
-function SettingCard({
-  icon,
+function MenuButton({
   title,
   description,
   onClick,
 }: {
-  icon: React.ReactNode;
   title: string;
   description: string;
   onClick: () => void;
@@ -693,16 +435,10 @@ function SettingCard({
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center gap-4 rounded-3xl border border-[#c9a86a]/10 bg-[#111827] p-5 text-left shadow-xl"
+      className="w-full rounded-3xl border border-[#c9a86a]/10 bg-[#111827] p-5 text-left shadow-xl"
     >
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937] text-[#d8c08a]">
-        {icon}
-      </div>
-
-      <div>
-        <h3 className="text-lg font-black">{title}</h3>
-        <p className="mt-1 text-sm text-gray-400">{description}</p>
-      </div>
+      <h3 className="text-xl font-black">{title}</h3>
+      <p className="mt-1 text-sm text-gray-400">{description}</p>
     </button>
   );
 }
@@ -721,30 +457,16 @@ function NotificationToggle({
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center justify-between gap-4 rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 text-left"
+      className="flex w-full items-center justify-between gap-4 rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4"
     >
-      <div>
-        <h3 className="font-bold">{title}</h3>
+      <div className="text-left">
+        <h3 className="text-lg font-black">{title}</h3>
         <p className="mt-1 text-sm text-gray-400">{description}</p>
       </div>
 
-      <div
-        className={`flex h-8 w-16 items-center rounded-full border p-1 ${
-          enabled
-            ? "justify-end border-[#6e8fb4] bg-[#355e8d]"
-            : "justify-start border-gray-600 bg-gray-700"
-        }`}
-      >
-        <div className="h-6 w-6 rounded-full bg-white" />
+      <div className={`relative h-9 w-16 rounded-full border ${enabled ? "border-[#6e8fb4] bg-[#355e8d]" : "border-gray-600 bg-gray-700"}`}>
+        <div className={`absolute top-1 h-7 w-7 rounded-full bg-white transition ${enabled ? "left-8" : "left-1"}`} />
       </div>
     </button>
-  );
-}
-
-function EmptyCard({ text }: { text: string }) {
-  return (
-    <div className="rounded-3xl border border-[#c9a86a]/10 bg-[#111827] p-7 text-center text-gray-400">
-      {text}
-    </div>
   );
 }
