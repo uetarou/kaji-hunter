@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { GuildShopIcon } from "@/components/icons/GuildShopIcon";
-import { SellDeliveryIcon } from "@/components/icons/SellDeliveryIcon";
 
 export type ShopItem = {
   id: string;
@@ -50,7 +48,7 @@ export function ShopView({
   if (page === "buy") {
     return (
       <section className="space-y-4">
-        <PageHeader title="購入" sub="Partner Items" right={`${points.toLocaleString()}pt`} onBack={() => setPage("top")} />
+        <PageHeader title="購入" sub="Partner Items" right={`${points}pt`} onBack={() => setPage("top")} />
 
         <div className="space-y-2.5">
           {buyableItems.length === 0 && <EmptyCard text="パートナーの出品はまだありません" />}
@@ -60,11 +58,11 @@ export function ShopView({
               key={item.id}
               onClick={() => onBuy(item)}
               disabled={points < item.price}
-              className="flex w-full items-center justify-between gap-3 rounded-2xl border border-orange-200/20 bg-gradient-to-r from-[#111827] to-[#0b1425] p-3 text-left shadow-lg disabled:opacity-40"
+              className="flex w-full items-center justify-between gap-3 rounded-2xl border border-emerald-300/20 bg-[#111827] p-3 text-left shadow-lg disabled:opacity-40"
             >
               <div className="flex min-w-0 items-center gap-3">
-                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-orange-200/25 bg-[#1f2937] text-orange-200">
-                  <GuildShopIcon className="h-8 w-8" />
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937] text-xl">
+                  🎁
                 </div>
                 <div className="min-w-0">
                   <h3 className="truncate text-base font-black">{item.title}</h3>
@@ -86,9 +84,9 @@ export function ShopView({
   if (page === "sell") {
     return (
       <section className="space-y-4">
-        <PageHeader title="出品" sub="Sell Item" right={`${points.toLocaleString()}pt`} onBack={() => setPage("top")} />
+        <PageHeader title="出品" sub="Sell Item" right={`${points}pt`} onBack={() => setPage("top")} />
 
-        <div className="rounded-3xl border border-purple-200/20 bg-[#111827] p-5 shadow-xl">
+        <div className="rounded-3xl border border-[#c9a86a]/15 bg-[#111827] p-5 shadow-xl">
           <div className="space-y-4">
             <InputBlock label="商品名">
               <input
@@ -120,7 +118,7 @@ export function ShopView({
               </select>
             </InputBlock>
 
-            <button onClick={submit} className="w-full rounded-2xl border border-purple-200/40 bg-gradient-to-r from-purple-950 via-purple-800 to-purple-950 py-4 font-black text-white shadow-lg">
+            <button onClick={submit} className="w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-4 font-black text-white shadow-lg">
               出品する
             </button>
           </div>
@@ -137,26 +135,14 @@ export function ShopView({
           <h2 className="mt-1 font-title text-4xl font-black leading-none">ショップ</h2>
         </div>
 
-        <div className="mb-1 min-w-[92px] rounded-full border border-[#c9a86a]/25 bg-[#111827] px-4 py-2 text-center text-sm font-black text-[#d8c08a]">
-          {points.toLocaleString()}pt
+        <div className="mb-1 rounded-full border border-[#c9a86a]/25 bg-[#111827] px-4 py-2 text-sm font-black text-[#d8c08a]">
+          {points}pt
         </div>
       </div>
 
       <div className="space-y-3">
-        <MenuCard
-          sub="Partner Items"
-          title="購入"
-          description="パートナーの出品を買う"
-          tone="buy"
-          onClick={() => setPage("buy")}
-        />
-        <MenuCard
-          sub="Sell Item"
-          title="出品"
-          description="報酬アイテムを並べる"
-          tone="sell"
-          onClick={() => setPage("sell")}
-        />
+        <MenuCard sub="Partner Items" title="購入" description="パートナーの出品を買う" icon="🧺" tone="green" onClick={() => setPage("buy")} />
+        <MenuCard sub="Sell Item" title="出品" description="報酬アイテムを並べる" icon="📦" tone="normal" onClick={() => setPage("sell")} />
       </div>
     </section>
   );
@@ -166,39 +152,32 @@ function MenuCard({
   sub,
   title,
   description,
+  icon,
   tone,
   onClick,
 }: {
   sub: string;
   title: string;
   description: string;
-  tone: "buy" | "sell";
+  icon: string;
+  tone: "green" | "normal";
   onClick: () => void;
 }) {
-  const isBuy = tone === "buy";
-
   return (
     <button
       onClick={onClick}
-      className={`group relative flex w-full items-center justify-between gap-4 overflow-hidden rounded-3xl border p-5 text-left shadow-xl transition active:scale-[0.99] ${
-        isBuy
-          ? "border-orange-200/35 bg-gradient-to-br from-[#3a1d05] via-[#1b1520] to-[#0c1424]"
-          : "border-purple-200/35 bg-gradient-to-br from-[#281135] via-[#171527] to-[#0c1424]"
+      className={`flex w-full items-center justify-between gap-4 rounded-3xl border p-5 text-left shadow-xl ${
+        tone === "green"
+          ? "border-emerald-300/25 bg-gradient-to-br from-[#0d221a] to-[#111827]"
+          : "border-[#c9a86a]/15 bg-gradient-to-br from-[#111827] to-[#07111f]"
       }`}
     >
-      <div className="pointer-events-none absolute inset-1 rounded-[20px] border border-white/5" />
-      <div className="pointer-events-none absolute -right-10 -top-12 h-28 w-28 rounded-full bg-white/5 blur-2xl" />
-
-      <div className="relative min-w-0">
+      <div>
         <p className="text-sm font-bold text-[#d8c08a]">{sub}</p>
-        <h3 className="mt-2 font-title text-4xl font-black leading-none text-white">{title}</h3>
-        <p className="mt-2 text-sm text-gray-300">{description}</p>
+        <h3 className="mt-2 text-3xl font-black">{title}</h3>
+        <p className="mt-2 text-sm text-gray-400">{description}</p>
       </div>
-
-      <div className={`relative grid h-20 w-20 shrink-0 place-items-center rounded-2xl border bg-[#111827]/80 shadow-inner ${isBuy ? "border-orange-200/35 text-orange-200" : "border-purple-200/35 text-purple-200"}`}>
-        {isBuy ? <GuildShopIcon className="h-14 w-14" /> : <SellDeliveryIcon className="h-14 w-14" />}
-      </div>
-      <span className="relative text-3xl text-[#d8c08a]">›</span>
+      <div className="grid h-16 w-16 shrink-0 place-items-center rounded-full border border-[#c9a86a]/20 bg-[#1f2937] text-3xl">{icon}</div>
     </button>
   );
 }
@@ -214,7 +193,7 @@ function PageHeader({ title, sub, right, onBack }: { title: string; sub: string;
           <p className="text-sm font-bold text-[#d8c08a]">{sub}</p>
           <h2 className="mt-1 font-title text-4xl font-black leading-none">{title}</h2>
         </div>
-        <div className="mb-1 min-w-[92px] rounded-full border border-[#c9a86a]/25 bg-[#111827] px-4 py-2 text-center text-sm font-black text-[#d8c08a]">{right}</div>
+        <div className="mb-1 rounded-full border border-[#c9a86a]/25 bg-[#111827] px-4 py-2 text-sm font-black text-[#d8c08a]">{right}</div>
       </div>
     </div>
   );
