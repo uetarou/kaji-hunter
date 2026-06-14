@@ -33,13 +33,13 @@ export function SettingsView({
   setMessage: (message: string) => void;
   quests?: Quest[];
 }) {
-  const [hunterName, setHunterName] = useState(profile?.hunter_name || "名無しハンター");
+  const [hunterName, setHunterName] = useState(profile?.hunter_name || "テストハンター");
   const [partnerCode, setPartnerCode] = useState("");
   const [incomingRequests, setIncomingRequests] = useState<PartnerRequest[]>([]);
   const [outgoingRequests, setOutgoingRequests] = useState<PartnerRequest[]>([]);
 
   useEffect(() => {
-    setHunterName(profile?.hunter_name || "名無しハンター");
+    setHunterName(profile?.hunter_name || "テストハンター");
   }, [profile?.hunter_name]);
 
   useEffect(() => {
@@ -226,13 +226,13 @@ export function SettingsView({
         <div className="space-y-5">
           <div className="rounded-3xl border border-[#c9a86a]/10 bg-[#1f2937] p-4">
             <p className="text-sm text-gray-400">自分の招待コード</p>
-            <div className="mt-3 flex gap-3">
-              <div className="flex-1 rounded-2xl bg-[#111827] p-4 font-title text-2xl font-black text-[#d8c08a]">
+            <div className="mt-3 flex items-center gap-2">
+              <div className="min-w-0 flex-1 rounded-2xl bg-[#111827] p-4 font-title text-xl font-black tracking-wider text-[#d8c08a]">
                 {profile?.invite_code || generateInviteCode(user.id)}
               </div>
               <button
                 onClick={() => navigator.clipboard.writeText(profile?.invite_code || generateInviteCode(user.id))}
-                className="rounded-2xl border border-[#6e8fb4] bg-[#355e8d] px-5 font-bold"
+                className="shrink-0 whitespace-nowrap rounded-2xl border border-[#6e8fb4] bg-[#355e8d] px-4 py-4 text-sm font-black"
               >
                 コピー
               </button>

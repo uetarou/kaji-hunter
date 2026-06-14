@@ -107,6 +107,7 @@ export default function Page() {
   const [showNameModal, setShowNameModal] = useState(false);
   const [initialHunterName, setInitialHunterName] = useState("");
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [viewedQuestIds, setViewedQuestIds] = useState<string[]>([]);
 
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
@@ -323,6 +324,19 @@ export default function Page() {
       ),
     [visibleQuests, partnerId, myId]
   );
+
+  const unviewedRecruitingQuestCount = useMemo(
+    () =>
+      partnerRecruitingQuests.filter((q) => !viewedQuestIds.includes(q.id))
+        .length,
+    [partnerRecruitingQuests, viewedQuestIds]
+  );
+
+  const markQuestViewed = (questId: string) => {
+    setViewedQuestIds((current) =>
+      current.includes(questId) ? current : [...current, questId]
+    );
+  };
 
   const acceptedQuests = useMemo(
     () =>
@@ -963,6 +977,7 @@ export default function Page() {
               partnerQuests={partnerRecruitingQuests}
               myId={myId || ""}
               onAccept={(quest: AcceptableQuest) => acceptQuest(quest)}
+              onView={(quest: Quest) => markQuestViewed(quest.id)}
               onEdit={(quest: Quest) => setEditingQuest(quest)}
               onCancel={(quest: Quest) => cancelQuest(quest)}
             />
@@ -1052,7 +1067,7 @@ export default function Page() {
           setActiveTab(tab);
           setSettingsPage(null);
         }}
-        questCount={partnerRecruitingQuests.length}
+        questCount={unviewedRecruitingQuestCount}
         requestCount={myRequestQuests.length}
         unreadCount={unreadCount}
       />
