@@ -38,7 +38,10 @@ export function BottomNav({
           return (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => {
+                if (tab.key === "shop") window.dispatchEvent(new Event("kaji-shop-reset"));
+                setActiveTab(tab.key);
+              }}
               className={`relative flex min-h-[62px] flex-col items-center justify-center rounded-2xl border text-[11px] font-bold shadow-lg ${
                 active
                   ? "border-[#c9a86a]/50 bg-gradient-to-b from-[#355e8d] to-[#183151] text-white"

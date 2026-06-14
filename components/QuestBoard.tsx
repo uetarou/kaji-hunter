@@ -72,10 +72,16 @@ function Home({
 
 function Board({
   partnerQuests,
+  myId,
   onAccept,
+  onEdit,
+  onCancel,
 }: {
   partnerQuests: Quest[];
+  myId?: string;
   onAccept: (quest: Quest) => void;
+  onEdit?: (quest: Quest) => void;
+  onCancel?: (quest: Quest) => void;
 }) {
   const [selectedQuest, setSelectedQuest] = useState<BoardQuest | null>(null);
   const [sortType, setSortType] = useState<"priority" | "partner" | "due">("priority");
@@ -127,7 +133,10 @@ function Board({
           <BoardQuestCard
             key={quest.id}
             quest={quest}
+            isMine={!!myId && quest.created_by === myId}
             onOpen={() => setSelectedQuest(quest)}
+            onEdit={() => onEdit?.(quest)}
+            onCancel={() => onCancel?.(quest)}
           />
         ))}
       </div>
@@ -209,7 +218,7 @@ function HomeQuestCard({
   );
 }
 
-function BoardQuestCard({ quest, onOpen }: { quest: BoardQuest; onOpen: () => void }) {
+function BoardQuestCard({ quest, isMine, onOpen, onEdit, onCancel }: { quest: BoardQuest; isMine?: boolean; onOpen: () => void; onEdit?: () => void; onCancel?: () => void }) {
   const type = getQuestType(quest);
   const tone = getTone(type);
 
@@ -229,12 +238,29 @@ function BoardQuestCard({ quest, onOpen }: { quest: BoardQuest; onOpen: () => vo
           </p>
         </div>
 
-        <button
-          onClick={onOpen}
-          className={`shrink-0 rounded-xl border px-3 py-2 text-xs font-bold text-white ${tone.button}`}
-        >
-          内容確認
-        </button>
+        {isMine ? (
+          <div className="flex shrink-0 flex-col gap-2">
+            <button
+              onClick={onEdit}
+              className="rounded-xl border border-[#6e8fb4]/50 bg-[#1f2937] px-3 py-2 text-xs font-bold text-sky-100"
+            >
+              編集
+            </button>
+            <button
+              onClick={onCancel}
+              className="rounded-xl border border-red-300/25 bg-red-950/30 px-3 py-2 text-xs font-bold text-red-100"
+            >
+              取り下げ
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={onOpen}
+            className={`shrink-0 rounded-xl border px-3 py-2 text-xs font-bold text-white ${tone.button}`}
+          >
+            内容確認
+          </button>
+        )}
       </div>
     </div>
   );

@@ -316,9 +316,12 @@ export default function Page() {
   const partnerRecruitingQuests = useMemo(
     () =>
       visibleQuests.filter(
-        (q) => q.status === "recruiting" && q.created_by === partnerId
+        (q) =>
+          q.status === "recruiting" &&
+          (q.created_by === partnerId ||
+            (q.created_by === myId && q.category === "毎日"))
       ),
-    [visibleQuests, partnerId]
+    [visibleQuests, partnerId, myId]
   );
 
   const acceptedQuests = useMemo(
@@ -335,6 +338,7 @@ export default function Page() {
         (q) =>
           q.created_by === myId &&
           q.accepted_by !== myId &&
+          q.category !== "毎日" &&
           q.status !== "completed"
       ),
     [visibleQuests, myId]
@@ -936,7 +940,7 @@ export default function Page() {
         className="transition-transform duration-200"
         style={{ transform: `translateX(${dragX}px)` }}
       >
-        <div className="mx-auto max-w-md px-4 pt-[88px]">
+        <div className="mx-auto max-w-md px-4 pt-[calc(86px+env(safe-area-inset-top))]">
           {message && (
             <div className="mb-4 rounded-2xl border border-[#c9a86a]/20 bg-[#111827] p-3 text-sm text-[#d8c08a]">
               {message}
@@ -957,7 +961,10 @@ export default function Page() {
           {activeTab === "quests" && (
             <QuestBoard.Board
               partnerQuests={partnerRecruitingQuests}
+              myId={myId || ""}
               onAccept={(quest: AcceptableQuest) => acceptQuest(quest)}
+              onEdit={(quest: Quest) => setEditingQuest(quest)}
+              onCancel={(quest: Quest) => cancelQuest(quest)}
             />
           )}
 

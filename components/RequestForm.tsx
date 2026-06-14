@@ -83,16 +83,16 @@ function RequestTypeButton({ title, label, tone, onClick }: { title: string; lab
 
   return (
     <button onClick={onClick} className={`group flex w-full items-center justify-between gap-4 rounded-3xl border p-5 text-left shadow-xl transition active:scale-[0.99] ${styles[tone]}`}>
-      <div className="flex min-w-0 items-center gap-4">
-        <div className={`grid h-16 w-16 shrink-0 place-items-center rounded-2xl border ${iconStyles[tone]}`}>
+      <div className="min-w-0">
+        <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${labelStyles[tone]}`}>{label}</span>
+        <h3 className="mt-3 font-title text-3xl font-black">{title}</h3>
+      </div>
+      <div className="flex shrink-0 items-center gap-3">
+        <div className={`grid h-16 w-16 place-items-center rounded-2xl border ${iconStyles[tone]}`}>
           <QuestSigil tone={tone} />
         </div>
-        <div className="min-w-0">
-          <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${labelStyles[tone]}`}>{label}</span>
-          <h3 className="mt-3 font-title text-2xl font-black">{title}</h3>
-        </div>
+        <span className="text-3xl font-black text-[#d8c08a]/70 transition group-active:translate-x-1">›</span>
       </div>
-      <span className="text-3xl font-black text-[#d8c08a]/70 transition group-active:translate-x-1">›</span>
     </button>
   );
 }
