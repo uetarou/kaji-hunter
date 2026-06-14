@@ -135,7 +135,7 @@ function QuestCalendar({ quests, onClose }: { quests: Quest[]; onClose: () => vo
   const cells = Array.from({ length: startDay + daysInMonth }, (_, index) =>
     index < startDay ? null : index - startDay + 1
   );
-  while (cells.length % 7 !== 0) cells.push(null);
+  while (cells.length < 42) cells.push(null);
 
   const questsByDay = useMemo(() => {
     const map = new Map<number, Quest[]>();
@@ -159,30 +159,32 @@ function QuestCalendar({ quests, onClose }: { quests: Quest[]; onClose: () => vo
         day={detailDay}
         quests={questsByDay.get(detailDay) || []}
         onBack={() => setDetailDay(null)}
-        onClose={onClose}
       />
     );
   }
 
   return (
-    <section className="relative space-y-3 pb-28">
-      <button
-        onClick={onClose}
-        className="absolute right-0 top-0 grid h-11 w-11 place-items-center rounded-2xl border border-[#c9a86a]/15 bg-[#1f2937] text-xl font-black text-[#d8c08a]"
-        aria-label="閉じる"
-      >
-        ×
-      </button>
+    <section className="relative flex min-h-[calc(100svh-210px)] flex-col gap-3 pb-24">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-[#d8c08a]">Quest Calendar</p>
+          <h2 className="mt-1 font-title text-3xl font-black leading-none">クエスト予定</h2>
+        </div>
 
-      <div className="pr-14">
-        <p className="text-sm font-bold text-[#d8c08a]">Quest Calendar</p>
-        <h2 className="mt-1 font-title text-3xl font-black leading-none">クエスト予定</h2>
-      </div>
-
-      <div className="flex items-center gap-2 rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-2">
-        <button onClick={() => moveMonth(-1)} className="grid h-9 w-9 place-items-center rounded-xl border border-[#c9a86a]/15 bg-[#111827] text-lg font-black">‹</button>
-        <p className="min-w-0 flex-1 text-center font-title text-lg font-black text-[#d8c08a]">{String(year).slice(2)}/{month + 1}</p>
-        <button onClick={() => moveMonth(1)} className="grid h-9 w-9 place-items-center rounded-xl border border-[#c9a86a]/15 bg-[#111827] text-lg font-black">›</button>
+        <div className="flex shrink-0 items-center gap-2">
+          <div className="flex items-center gap-1 rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-1">
+            <button onClick={() => moveMonth(-1)} className="grid h-9 w-9 place-items-center rounded-xl border border-[#c9a86a]/10 bg-[#111827] text-lg font-black">‹</button>
+            <p className="w-16 text-center font-title text-base font-black text-[#d8c08a]">{String(year).slice(2)}/{month + 1}</p>
+            <button onClick={() => moveMonth(1)} className="grid h-9 w-9 place-items-center rounded-xl border border-[#c9a86a]/10 bg-[#111827] text-lg font-black">›</button>
+          </div>
+          <button
+            onClick={onClose}
+            className="grid h-11 w-11 place-items-center rounded-2xl border border-[#c9a86a]/15 bg-[#1f2937] text-xl font-black text-[#d8c08a]"
+            aria-label="閉じる"
+          >
+            ×
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-black text-gray-400">
@@ -191,7 +193,7 @@ function QuestCalendar({ quests, onClose }: { quests: Quest[]; onClose: () => vo
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid flex-1 grid-cols-7 grid-rows-6 gap-1.5">
         {cells.map((day, index) => {
           const dayQuests = day ? questsByDay.get(day) || [] : [];
           const hasQuests = dayQuests.length > 0;
@@ -203,7 +205,7 @@ function QuestCalendar({ quests, onClose }: { quests: Quest[]; onClose: () => vo
               key={`${day || "blank"}-${index}`}
               disabled={!day}
               onClick={() => day && setDetailDay(day)}
-              className={`min-h-[60px] rounded-xl border p-1.5 text-left transition active:scale-[0.98] ${
+              className={`min-h-[68px] rounded-xl border p-1.5 text-left transition active:scale-[0.98] ${
                 day
                   ? hasQuests
                     ? "border-[#6e8fb4]/55 bg-[#12304c]/60"
@@ -213,7 +215,7 @@ function QuestCalendar({ quests, onClose }: { quests: Quest[]; onClose: () => vo
                   : "border-transparent bg-transparent"
               }`}
             >
-              {day && <p className="text-[11px] font-black text-[#d8c08a]">{day}</p>}
+              {day && <p className="text-[12px] font-black text-[#d8c08a]">{day}</p>}
               <div className="mt-1 space-y-0.5">
                 {dayQuests.slice(0, 2).map((quest) => (
                   <p key={quest.id} className="truncate rounded bg-[#6e8fb4]/25 px-1 py-0.5 text-[8px] font-bold leading-tight text-sky-100">
@@ -236,14 +238,12 @@ function CalendarDayDetail({
   day,
   quests,
   onBack,
-  onClose,
 }: {
   year: number;
   month: number;
   day: number;
   quests: Quest[];
   onBack: () => void;
-  onClose: () => void;
 }) {
   const memoKey = `kaji-calendar-memo-${year}-${month + 1}-${day}`;
   const [memo, setMemo] = useState("");
@@ -260,18 +260,14 @@ function CalendarDayDetail({
   return (
     <section className="relative space-y-4 pb-28">
       <button
-        onClick={onClose}
+        onClick={onBack}
         className="absolute right-0 top-0 grid h-11 w-11 place-items-center rounded-2xl border border-[#c9a86a]/15 bg-[#1f2937] text-xl font-black text-[#d8c08a]"
-        aria-label="閉じる"
+        aria-label="カレンダーに戻る"
       >
         ×
       </button>
 
-      <button onClick={onBack} className="rounded-2xl border border-[#c9a86a]/15 bg-[#1f2937] px-4 py-3 text-sm font-black text-[#d8c08a]">
-        ‹ カレンダーに戻る
-      </button>
-
-      <div className="pr-12">
+      <div className="pr-14">
         <p className="text-sm font-bold text-[#d8c08a]">Quest Schedule</p>
         <h2 className="mt-1 font-title text-3xl font-black leading-none">{month + 1}/{day} の予定</h2>
       </div>
@@ -283,13 +279,15 @@ function CalendarDayDetail({
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h3 className="truncate text-lg font-black">{quest.title}</h3>
-                <p className="mt-1 text-xs text-gray-400">期限：{formatDueAt(quest.due_at)} / {quest.points ?? 20}pt</p>
+                <p className="mt-1 text-xs text-gray-400">期限：{getScheduleLabel(quest)} / {quest.points ?? 20}pt</p>
               </div>
               <span className="shrink-0 rounded-full border border-[#6e8fb4]/40 bg-[#355e8d]/20 px-2 py-1 text-[10px] font-bold text-blue-100">
                 {getQuestType(quest)}
               </span>
             </div>
-            {quest.description && <p className="mt-3 whitespace-pre-wrap rounded-2xl bg-[#1f2937] p-3 text-sm leading-6 text-gray-300">{stripSchedulePrefix(quest.description)}</p>}
+            <p className="mt-3 whitespace-pre-wrap rounded-2xl bg-[#1f2937] p-3 text-sm leading-6 text-gray-300">
+              {stripSchedulePrefix(quest.description || "内容なし")}
+            </p>
           </div>
         ))}
       </div>
@@ -426,9 +424,10 @@ function HomeQuestCard({
             {statusText}
           </span>
         </div>
-        <p className="mt-1 truncate text-[12px] text-gray-400">
-          {getScheduleLabel(quest)} <span className="text-[#d8c08a]">/ {quest.points ?? 20}pt</span>
-        </p>
+        <div className="mt-1 flex min-w-0 items-center gap-2 text-[12px] text-gray-400">
+          <span className="truncate">{getScheduleLabel(quest)}</span>
+          <span className="shrink-0 rounded-full bg-[#1f2937] px-2 py-0.5 text-[#d8c08a]">{quest.points ?? 20}pt</span>
+        </div>
       </button>
 
       <div className="flex shrink-0 flex-col gap-1">
@@ -500,6 +499,7 @@ function HomeQuestDetailModal({
         </div>
 
         <div className="space-y-3">
+          <DetailBox label="進行状況" value={getStatusText(quest.status)} />
           <DetailBox label="依頼内容" value={stripSchedulePrefix(quest.description || "内容なし")} />
           <DetailBox label="期限" value={getScheduleLabel(quest)} />
           <DetailBox label="報酬" value={`${quest.points ?? 20}pt`} />
@@ -589,7 +589,7 @@ function getTone(type: string) {
 }
 
 function getStatusText(status: string) {
-  if (status === "recruiting") return "募集中";
+  if (status === "recruiting") return "未受注";
   if (status === "accepted") return "進行中";
   if (status === "waiting_confirm") return "完了確認待ち";
   if (status === "completed") return "達成済み";

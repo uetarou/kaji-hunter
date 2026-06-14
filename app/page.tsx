@@ -109,6 +109,7 @@ export default function Page() {
   const [initialHunterName, setInitialHunterName] = useState("");
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [viewedQuestIds, setViewedQuestIds] = useState<string[]>([]);
+  const [dailyAcceptedTodayIds, setDailyAcceptedTodayIds] = useState<string[]>([]);
 
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
@@ -126,6 +127,23 @@ export default function Page() {
     const timer = setTimeout(() => setMessage(""), 3500);
     return () => clearTimeout(timer);
   }, [message]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const today = getDateKey(new Date());
+    const prefix = `kaji-daily-accepted-${user.id}-`;
+    const ids: string[] = [];
+
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index);
+      if (!key?.startsWith(prefix)) continue;
+      if (window.localStorage.getItem(key) === today) {
+        ids.push(key.replace(prefix, ""));
+      }
+    }
+
+    setDailyAcceptedTodayIds(ids);
+  }, [user?.id]);
 
   const generateInviteCode = (userId: string) =>
     userId.slice(0, 8).toUpperCase();
@@ -317,13 +335,15 @@ export default function Page() {
 
   const partnerRecruitingQuests = useMemo(
     () =>
-      visibleQuests.filter(
-        (q) =>
-          q.status === "recruiting" &&
-          (q.created_by === partnerId ||
-            (q.created_by === myId && q.category === "毎日"))
-      ),
-    [visibleQuests, partnerId, myId]
+      visibleQuests.filter((q) => {
+        const isDaily = q.category === "毎日";
+        const isOwnDaily = q.created_by === myId && isDaily;
+        const isPartnerQuest = q.created_by === partnerId;
+        const hiddenToday = isDaily && dailyAcceptedTodayIds.includes(q.id);
+
+        return q.status === "recruiting" && !hiddenToday && (isPartnerQuest || isOwnDaily);
+      }),
+    [visibleQuests, partnerId, myId, dailyAcceptedTodayIds]
   );
 
   const unviewedRecruitingQuestCount = useMemo(
@@ -421,6 +441,40 @@ export default function Page() {
     }
   };
 
+
+  useEffect(() => {
+    if (!user?.id) return;
+    if (typeof window === "undefined") return;
+
+    const enabled = window.localStorage.getItem("kaji-deadline-reminder-enabled") !== "false";
+    if (!enabled) return;
+
+    const now = new Date();
+    if (now.getHours() < 21) return;
+
+    const sentKey = `kaji-deadline-reminder-sent-${user.id}-${getDateKey(now)}`;
+    if (window.localStorage.getItem(sentKey)) return;
+
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+
+    const targets = visibleQuests.filter((quest) => {
+      if (["completed", "cancelled"].includes(quest.status)) return false;
+      return isQuestDueOnDate(quest, tomorrow);
+    });
+
+    if (targets.length === 0) return;
+
+    createNotification(
+      user.id,
+      "quest_created",
+      "クエストの期日が迫っています！",
+      `明日までのクエストが${targets.length}件あります。カレンダーで確認してください。`
+    );
+
+    window.localStorage.setItem(sentKey, "1");
+  }, [user?.id, visibleQuests]);
+
   const saveInitialName = async () => {
     if (!user) return;
 
@@ -515,19 +569,49 @@ export default function Page() {
     if (!user) return;
 
     const realQuest = quest;
+    const isDailyQuest = realQuest.category === "毎日";
 
-    const { error } = await supabase
-      .from("quests")
-      .update({
-        status: "accepted",
-        accepted_by: user.id,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", realQuest.id);
+    if (isDailyQuest) {
+      const { error } = await supabase.from("quests").insert([
+        {
+          title: realQuest.title,
+          description: realQuest.description,
+          category: realQuest.category,
+          reward: realQuest.reward || `${realQuest.points ?? 20}pt`,
+          points: realQuest.points ?? 20,
+          due_at: realQuest.due_at,
+          status: "accepted",
+          is_urgent: realQuest.is_urgent,
+          created_by: realQuest.created_by,
+          accepted_by: user.id,
+          pair_id: partnerId || null,
+        },
+      ]);
 
-    if (error) {
-      setMessage(`受注に失敗しました: ${error.message}`);
-      return;
+      if (error) {
+        setMessage(`受注に失敗しました: ${error.message}`);
+        return;
+      }
+
+      const today = getDateKey(new Date());
+      window.localStorage.setItem(`kaji-daily-accepted-${user.id}-${realQuest.id}`, today);
+      setDailyAcceptedTodayIds((current) =>
+        current.includes(realQuest.id) ? current : [...current, realQuest.id]
+      );
+    } else {
+      const { error } = await supabase
+        .from("quests")
+        .update({
+          status: "accepted",
+          accepted_by: user.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", realQuest.id);
+
+      if (error) {
+        setMessage(`受注に失敗しました: ${error.message}`);
+        return;
+      }
     }
 
     await createNotification(
@@ -1034,7 +1118,6 @@ export default function Page() {
               setNotificationSettings={setNotificationSettings}
               reloadAll={reloadAll}
               setMessage={setMessage}
-              quests={quests}
             />
           )}
         </div>
@@ -1225,6 +1308,56 @@ function EditQuestModal({
         </div>
       </div>
     </div>
+  );
+}
+
+
+function getDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+const pageWeekdayMap: Record<string, number> = {
+  日: 0,
+  日曜: 0,
+  日曜日: 0,
+  月: 1,
+  月曜: 1,
+  月曜日: 1,
+  火: 2,
+  火曜: 2,
+  火曜日: 2,
+  水: 3,
+  水曜: 3,
+  水曜日: 3,
+  木: 4,
+  木曜: 4,
+  木曜日: 4,
+  金: 5,
+  金曜: 5,
+  金曜日: 5,
+  土: 6,
+  土曜: 6,
+  土曜日: 6,
+};
+
+function isQuestDueOnDate(quest: Quest, date: Date) {
+  const description = quest.description || "";
+  const match = description.match(/^【([^】]+)】/);
+
+  if (match) {
+    const text = match[1];
+    const weekly = text.match(/^毎週(.+?)(?:\s+\d{1,2}:\d{2})?$/);
+    if (weekly) return date.getDay() === pageWeekdayMap[weekly[1]];
+    if (/^毎日/.test(text)) return true;
+  }
+
+  if (!quest.due_at) return false;
+  const due = new Date(quest.due_at);
+  if (Number.isNaN(due.getTime())) return false;
+  return (
+    due.getFullYear() === date.getFullYear() &&
+    due.getMonth() === date.getMonth() &&
+    due.getDate() === date.getDate()
   );
 }
 

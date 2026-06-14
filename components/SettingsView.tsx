@@ -4,7 +4,7 @@ import type { User } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { PushNotificationButton } from "@/components/PushNotificationButton";
-import type { NotificationSettings, PartnerRequest, Profile, Quest } from "@/app/page";
+import type { NotificationSettings, PartnerRequest, Profile } from "@/app/page";
 
 export function SettingsView({
   user,
@@ -18,7 +18,6 @@ export function SettingsView({
   setNotificationSettings,
   reloadAll,
   setMessage,
-  quests = [],
 }: {
   user: User;
   profile: Profile | null;
@@ -31,16 +30,30 @@ export function SettingsView({
   setNotificationSettings: (settings: NotificationSettings | null) => void;
   reloadAll: () => void;
   setMessage: (message: string) => void;
-  quests?: Quest[];
 }) {
   const [hunterName, setHunterName] = useState(profile?.hunter_name || "テストハンター");
   const [partnerCode, setPartnerCode] = useState("");
   const [incomingRequests, setIncomingRequests] = useState<PartnerRequest[]>([]);
   const [outgoingRequests, setOutgoingRequests] = useState<PartnerRequest[]>([]);
+  const [deadlineReminderEnabled, setDeadlineReminderEnabled] = useState(true);
 
   useEffect(() => {
     setHunterName(profile?.hunter_name || "テストハンター");
   }, [profile?.hunter_name]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setDeadlineReminderEnabled(
+      window.localStorage.getItem("kaji-deadline-reminder-enabled") !== "false"
+    );
+  }, []);
+
+  const toggleDeadlineReminder = () => {
+    const next = !deadlineReminderEnabled;
+    setDeadlineReminderEnabled(next);
+    window.localStorage.setItem("kaji-deadline-reminder-enabled", String(next));
+    setMessage(next ? "期限前日リマインドをONにしました。" : "期限前日リマインドをOFFにしました。");
+  };
 
   useEffect(() => {
     if (settingsPage === "partner") fetchPartnerRequests();
@@ -226,13 +239,13 @@ export function SettingsView({
         <div className="space-y-5">
           <div className="rounded-3xl border border-[#c9a86a]/10 bg-[#1f2937] p-4">
             <p className="text-sm text-gray-400">自分の招待コード</p>
-            <div className="mt-3 flex items-center gap-2">
-              <div className="min-w-0 flex-1 rounded-2xl bg-[#111827] p-4 font-title text-lg font-black tracking-wider text-[#d8c08a]">
+            <div className="mt-3 flex gap-3">
+              <div className="flex-1 rounded-2xl bg-[#111827] p-4 font-title text-2xl font-black text-[#d8c08a]">
                 {profile?.invite_code || generateInviteCode(user.id)}
               </div>
               <button
                 onClick={() => navigator.clipboard.writeText(profile?.invite_code || generateInviteCode(user.id))}
-                className="shrink-0 whitespace-nowrap rounded-2xl border border-[#6e8fb4] bg-[#355e8d] px-3 py-4 text-xs font-black"
+                className="rounded-2xl border border-[#6e8fb4] bg-[#355e8d] px-5 font-bold"
               >
                 コピー
               </button>
@@ -328,6 +341,12 @@ export function SettingsView({
 
         <div className="space-y-3">
           <NotificationToggle
+            title="期限前日リマインド"
+            description="前日21時以降にアプリを開いた時、翌日期限のクエストを通知"
+            enabled={deadlineReminderEnabled}
+            onClick={toggleDeadlineReminder}
+          />
+          <NotificationToggle
             title="新しいクエスト"
             description="相手がクエストを依頼した時"
             enabled={notificationSettings?.quest_created ?? true}
@@ -357,72 +376,20 @@ export function SettingsView({
   }
 
   if (settingsPage === "account") {
-    const totalPoints = profile?.total_points ?? 0;
-    const currentPoints = profile?.points ?? 0;
-    const hunterRank = Math.floor(totalPoints / 200) + 1;
-    const rankTheme = getRankTheme(hunterRank);
-    const myQuests = quests.filter((quest) => quest.created_by === user.id || quest.accepted_by === user.id);
-    const completedQuests = myQuests.filter((quest) => quest.status === "done" || quest.status === "completed");
-    const acceptedCompletedQuests = completedQuests.filter((quest) => quest.accepted_by === user.id);
-    const requestedQuests = quests.filter((quest) => quest.created_by === user.id);
-    const acceptedQuests = quests.filter((quest) => quest.accepted_by === user.id);
-    const normalCompleted = acceptedCompletedQuests.filter((quest) => !quest.is_urgent && quest.category !== "毎日");
-    const urgentCompleted = acceptedCompletedQuests.filter((quest) => quest.is_urgent);
-    const dailyCompleted = acceptedCompletedQuests.filter((quest) => quest.category === "毎日");
-
     return (
-      <SettingsPanel title="ギルドカード" onBack={() => setSettingsPage(null)}>
-        <div className={`relative overflow-hidden rounded-[2rem] border bg-gradient-to-br p-4 shadow-2xl ${rankTheme.cardClass}`}>
-          <div className="pointer-events-none absolute inset-0 opacity-25" style={{ backgroundImage: "radial-gradient(circle at 20% 15%, rgba(255,255,255,.16), transparent 26%), radial-gradient(circle at 80% 0%, rgba(255,255,255,.10), transparent 24%)" }} />
-          <div className="relative flex items-center justify-between border-b border-current/20 pb-3">
-            <div>
-              <p className="text-xs font-black tracking-[0.35em] opacity-70">GUILD CARD</p>
-              <h2 className="font-title text-3xl font-black">狩人記録</h2>
-            </div>
-            <div className={`rounded-2xl border px-3 py-1 text-xs font-black ${rankTheme.badgeClass}`}>{rankTheme.name}</div>
-          </div>
-
-          <div className="relative mt-4 flex items-center gap-4">
-            <div className={`grid h-24 w-24 shrink-0 place-items-center rounded-full border-4 bg-black/35 shadow-inner ${rankTheme.ringClass}`}>
-              <div className="text-center">
-                <p className="text-xs font-black text-[#d8c08a]">HR</p>
-                <p className="font-title text-4xl font-black">{hunterRank}</p>
-              </div>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-[#d8c08a]">ハンター名</p>
-              <div className="mt-1 flex items-center gap-2">
-                <input
-                  value={hunterName}
-                  onChange={(e) => setHunterName(e.target.value)}
-                  className="min-w-0 flex-1 rounded-2xl border border-[#c9a86a]/20 bg-black/25 px-3 py-3 font-black outline-none"
-                />
-                <button onClick={saveHunterName} className="rounded-2xl border border-[#c9a86a]/30 bg-[#1f2937]/80 px-3 py-3 text-sm font-black text-[#d8c08a]">保存</button>
-              </div>
-              <p className="mt-2 text-sm font-bold opacity-80">称号：{rankTheme.title}</p>
-            </div>
-          </div>
-
-          <div className="relative mt-4 grid grid-cols-2 gap-3">
-            <GuildStat label="所持ポイント" value={`${currentPoints.toLocaleString()} pt`} />
-            <GuildStat label="累計獲得ポイント" value={`${totalPoints.toLocaleString()} pt`} />
-          </div>
-
-          <div className="relative mt-4 rounded-3xl border border-[#c9a86a]/15 bg-black/25 p-4">
-            <p className="mb-3 text-sm font-black text-[#d8c08a]">クエスト記録</p>
-            <div className="space-y-2">
-              <GuildRecord label="完了クエスト数" value={`${acceptedCompletedQuests.length} 回`} />
-              <GuildRecord label="通常クエスト達成数" value={`${normalCompleted.length} 回`} />
-              <GuildRecord label="緊急クエスト達成数" value={`${urgentCompleted.length} 回`} />
-              <GuildRecord label="毎日クエスト達成数" value={`${dailyCompleted.length} 回`} />
-              <GuildRecord label="依頼した数" value={`${requestedQuests.length} 回`} />
-              <GuildRecord label="受注した数" value={`${acceptedQuests.length} 回`} />
-              <GuildRecord label="合計獲得pt" value={`${totalPoints.toLocaleString()} pt`} />
-            </div>
-          </div>
-        </div>
-
-        <p className="mt-4 text-center text-xs font-bold text-gray-400">HRが上がるとギルドカードの色と称号が変化します。</p>
+      <SettingsPanel title="アカウント" onBack={() => setSettingsPage(null)}>
+        <label className="block text-sm font-bold text-[#d8c08a]">ハンター名</label>
+        <input
+          value={hunterName}
+          onChange={(e) => setHunterName(e.target.value)}
+          className="mt-3 w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 outline-none"
+        />
+        <button
+          onClick={saveHunterName}
+          className="mt-4 w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-4 font-bold"
+        >
+          保存する
+        </button>
       </SettingsPanel>
     );
   }
@@ -494,71 +461,6 @@ function MenuButton({
       <h3 className="text-xl font-black">{title}</h3>
       <p className="mt-1 text-sm text-gray-400">{description}</p>
     </button>
-  );
-}
-
-
-function getRankTheme(hr: number) {
-  if (hr >= 100) {
-    return {
-      name: "LEGEND",
-      title: "Legend Hunter",
-      cardClass: "from-[#2b1024] via-[#111827] to-[#0b1020] border-[#e879f9]/60 text-[#fce7f3]",
-      ringClass: "border-[#e879f9] text-[#f0abfc]",
-      badgeClass: "border-[#e879f9]/60 bg-[#701a75]/50 text-[#f0abfc]",
-    };
-  }
-  if (hr >= 50) {
-    return {
-      name: "PLATINUM",
-      title: "Platinum Hunter",
-      cardClass: "from-[#082f49] via-[#111827] to-[#0b1020] border-[#7dd3fc]/60 text-[#e0f2fe]",
-      ringClass: "border-[#7dd3fc] text-[#bae6fd]",
-      badgeClass: "border-[#7dd3fc]/60 bg-[#0c4a6e]/50 text-[#bae6fd]",
-    };
-  }
-  if (hr >= 30) {
-    return {
-      name: "GOLD",
-      title: "Gold Hunter",
-      cardClass: "from-[#3f2f05] via-[#111827] to-[#0b1020] border-[#facc15]/60 text-[#fef9c3]",
-      ringClass: "border-[#facc15] text-[#fde68a]",
-      badgeClass: "border-[#facc15]/60 bg-[#713f12]/50 text-[#fde68a]",
-    };
-  }
-  if (hr >= 10) {
-    return {
-      name: "SILVER",
-      title: "Silver Hunter",
-      cardClass: "from-[#374151] via-[#111827] to-[#0b1020] border-[#d1d5db]/60 text-[#f3f4f6]",
-      ringClass: "border-[#d1d5db] text-[#e5e7eb]",
-      badgeClass: "border-[#d1d5db]/60 bg-[#374151]/70 text-[#f3f4f6]",
-    };
-  }
-  return {
-    name: "BRONZE",
-    title: "Bronze Hunter",
-    cardClass: "from-[#3b2412] via-[#111827] to-[#0b1020] border-[#c47a3b]/60 text-[#ffedd5]",
-    ringClass: "border-[#c47a3b] text-[#fdba74]",
-    badgeClass: "border-[#c47a3b]/60 bg-[#7c2d12]/40 text-[#fdba74]",
-  };
-}
-
-function GuildStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-[#c9a86a]/15 bg-black/25 p-3">
-      <p className="text-[11px] font-bold text-[#d8c08a]">{label}</p>
-      <p className="mt-1 text-xl font-black">{value}</p>
-    </div>
-  );
-}
-
-function GuildRecord({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between border-b border-[#c9a86a]/10 pb-2 last:border-b-0 last:pb-0">
-      <span className="text-sm text-gray-300">{label}</span>
-      <span className="font-black text-[#f3d58a]">{value}</span>
-    </div>
   );
 }
 

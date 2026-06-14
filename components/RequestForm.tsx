@@ -119,6 +119,7 @@ function RequestModal({ type, onClose, onCreate }: { type: ModalType; onClose: (
   const [points, setPoints] = useState<number>(config.min);
   const [dailyTimeMode, setDailyTimeMode] = useState<"anytime" | "time" | "weekly">("anytime");
   const [weeklyDay, setWeeklyDay] = useState("1");
+  const [weeklyHasTime, setWeeklyHasTime] = useState(false);
 
   useEffect(() => setPoints(config.min), [config.min, type]);
   useEffect(() => {
@@ -126,6 +127,7 @@ function RequestModal({ type, onClose, onCreate }: { type: ModalType; onClose: (
       setDailyTimeMode("anytime");
       setDueTime("");
       setWeeklyDay("1");
+      setWeeklyHasTime(false);
     }
   }, [type]);
 
@@ -134,7 +136,7 @@ function RequestModal({ type, onClose, onCreate }: { type: ModalType; onClose: (
     const safePoints = Math.min(Math.max(points, config.min), config.max);
     const today = new Date().toISOString().slice(0, 10);
     const dueAt = isDaily
-      ? dailyTimeMode === "weekly" && dueTime
+      ? dailyTimeMode === "weekly" && weeklyHasTime && dueTime
         ? getNextWeeklyDate(Number(weeklyDay), dueTime).toISOString()
         : dailyTimeMode === "time" && dueTime
         ? new Date(`${today}T${dueTime}`).toISOString()
@@ -145,7 +147,7 @@ function RequestModal({ type, onClose, onCreate }: { type: ModalType; onClose: (
 
     const dailyPrefix = isDaily
       ? dailyTimeMode === "weekly"
-        ? `【毎週${WEEKDAYS[Number(weeklyDay)]}${dueTime ? ` ${dueTime}` : ""}】`
+        ? `【毎週${WEEKDAYS[Number(weeklyDay)]}${weeklyHasTime && dueTime ? ` ${dueTime}` : ""}】`
         : dailyTimeMode === "time" && dueTime
         ? `【毎日 ${dueTime}】`
         : "【いつでも】"
@@ -199,7 +201,7 @@ function RequestModal({ type, onClose, onCreate }: { type: ModalType; onClose: (
               </InputBlock>
 
               {isDaily ? (
-                <InputBlock label="希望時間">
+                <InputBlock label="予定">
                   <div className="grid grid-cols-3 gap-2">
                     <DailyModeButton active={dailyTimeMode === "anytime"} onClick={() => { setDailyTimeMode("anytime"); setDueTime(""); }} label="いつでも" />
                     <DailyModeButton active={dailyTimeMode === "time"} onClick={() => setDailyTimeMode("time")} label="時間指定" />
@@ -209,20 +211,34 @@ function RequestModal({ type, onClose, onCreate }: { type: ModalType; onClose: (
                     <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className="mt-2 min-w-0 w-full rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937]/90 px-3 py-2.5 text-[16px] outline-none" />
                   )}
                   {dailyTimeMode === "weekly" && (
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      <select value={weeklyDay} onChange={(e) => setWeeklyDay(e.target.value)} className="min-w-0 rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937]/90 px-3 py-2.5 text-[16px] outline-none">
-                        {WEEKDAYS.map((day, index) => <option key={day} value={index}>{day}</option>)}
-                      </select>
-                      <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className="min-w-0 rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937]/90 px-3 py-2.5 text-[16px] outline-none" />
+                    <div className="mt-2 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <select value={weeklyDay} onChange={(e) => setWeeklyDay(e.target.value)} className="min-w-0 rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937]/90 px-3 py-2.5 text-[16px] outline-none">
+                          {WEEKDAYS.map((day, index) => <option key={day} value={index}>{day}</option>)}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setWeeklyHasTime((current) => !current);
+                            if (weeklyHasTime) setDueTime("");
+                          }}
+                          className={`rounded-2xl border px-3 py-2.5 text-[16px] font-black ${weeklyHasTime ? "border-sky-300/50 bg-sky-500/20 text-sky-100" : "border-[#c9a86a]/20 bg-[#1f2937]/90 text-gray-300"}`}
+                        >
+                          {weeklyHasTime ? "時間あり" : "当日中"}
+                        </button>
+                      </div>
+                      {weeklyHasTime && (
+                        <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className="min-w-0 w-full rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937]/90 px-3 py-2.5 text-[16px] outline-none" />
+                      )}
                     </div>
                   )}
                 </InputBlock>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
-                  <InputBlock label="希望日">
+                  <InputBlock label="期限日">
                     <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="min-w-0 w-full rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937]/90 px-3 py-2.5 text-[16px] outline-none" />
                   </InputBlock>
-                  <InputBlock label="希望時間">
+                  <InputBlock label="期限時間">
                     <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className="min-w-0 w-full rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937]/90 px-3 py-2.5 text-[16px] outline-none" />
                   </InputBlock>
                 </div>
