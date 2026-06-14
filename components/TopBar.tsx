@@ -42,7 +42,7 @@ export function TopBar({
             <h1 className="font-title text-[16px] font-black leading-none tracking-wide text-[#d8c08a]">
               Kaji Hunter
             </h1>
-            <p className="mt-1 truncate font-title text-[27px] font-black leading-none tracking-wide text-white drop-shadow">
+            <p className="mt-1 truncate text-[27px] font-black leading-none tracking-wide text-white drop-shadow [font-family:var(--font-orbitron),var(--font-noto),sans-serif]">
               {hunterName}
             </p>
           </div>
