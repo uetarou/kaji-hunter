@@ -76,6 +76,13 @@ export function NotificationCenter({
             <p className="text-xs font-bold text-[#d8c08a]">完了報告</p>
             <h3 className="mt-2 text-xl font-black">{quest.title}</h3>
             <p className="mt-1 text-sm text-gray-400">承認待ちです</p>
+            {quest.quest_reports?.[0]?.image_url && (
+              <img
+                src={quest.quest_reports[0].image_url}
+                alt="完了報告画像"
+                className="mt-3 max-h-56 w-full rounded-2xl border border-[#c9a86a]/10 object-cover"
+              />
+            )}
             <button
               onClick={() => onApproveQuest?.(quest)}
               className="mt-4 w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-3 text-sm font-black text-white"

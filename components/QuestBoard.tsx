@@ -162,7 +162,7 @@ function QuestCalendar({ quests, onClose }: { quests: Quest[]; onClose: () => vo
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-bold text-[#d8c08a]">Quest Calendar</p>
-          <h2 className="mt-1 font-title text-[34px] font-black leading-[0.9] tracking-tight">スケジュール</h2>
+          <h2 className="mt-1 font-title text-[26px] font-black leading-none tracking-tight">スケジュール</h2>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
@@ -199,7 +199,7 @@ function QuestCalendar({ quests, onClose }: { quests: Quest[]; onClose: () => vo
               key={`${day || "blank"}-${index}`}
               disabled={!day}
               onClick={() => day && setDetailDay(day)}
-              className={`min-h-[82px] rounded-xl border p-1.5 text-left transition active:scale-[0.98] ${
+              className={`min-h-[92px] rounded-xl border p-2 text-left transition active:scale-[0.98] ${
                 day
                   ? hasQuests
                     ? "border-[#6e8fb4]/60 bg-[#12304c]/70"
@@ -209,7 +209,7 @@ function QuestCalendar({ quests, onClose }: { quests: Quest[]; onClose: () => vo
                   : "border-transparent bg-transparent"
               }`}
             >
-              {day && <p className="text-left text-[12px] font-black leading-none text-[#d8c08a]">{day}</p>}
+              {day && <p className="text-left text-[13px] font-black leading-none text-[#d8c08a]">{day}</p>}
               <div className="mt-2 space-y-0.5">
                 {dayQuests.slice(0, 2).map((quest) => (
                   <p key={quest.id} className="truncate rounded bg-[#6e8fb4]/25 px-1 py-0.5 text-[8px] font-bold leading-tight text-sky-100">

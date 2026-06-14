@@ -24,6 +24,7 @@ export type Quest = {
   accepted_by: string | null;
   due_at: string | null;
   points?: number | null;
+  quest_reports?: Array<{ image_url: string | null; created_at?: string | null }> | null;
 };
 
 export type Profile = {
@@ -253,7 +254,7 @@ export default function Page() {
   const fetchQuests = async () => {
     const { data } = await supabase
       .from("quests")
-      .select("*")
+      .select("*, quest_reports(image_url, created_at)")
       .neq("status", "cancelled")
       .order("is_urgent", { ascending: false })
       .order("created_at", { ascending: false });
@@ -264,10 +265,27 @@ export default function Page() {
   const fetchShopItems = async () => {
     if (!user) return;
 
-    const { data } = await supabase
+    let query = supabase
       .from("shop_items")
       .select("*")
       .order("created_at", { ascending: false });
+
+    // RLSが有効でも「自分の出品」「自分宛て(pair_id)」「パートナーの出品」を拾えるように明示する
+    if (profile?.partner_id) {
+      query = query.or(
+        `seller_id.eq.${user.id},pair_id.eq.${user.id},seller_id.eq.${profile.partner_id}`
+      );
+    } else {
+      query = query.eq("seller_id", user.id);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      setMessage(`ショップ商品の取得に失敗しました: ${error.message}`);
+      setShopItems([]);
+      return;
+    }
 
     setShopItems((data || []) as ShopItem[]);
   };
@@ -421,7 +439,7 @@ export default function Page() {
 
     if (settings && settings[type] === false) return;
 
-    await supabase.from("notifications").insert([
+    const { error } = await supabase.from("notifications").insert([
       {
         user_id: userId,
         title,
@@ -429,6 +447,10 @@ export default function Page() {
         is_read: false,
       },
     ]);
+
+    if (error) {
+      console.warn("通知履歴の保存に失敗しました", error.message);
+    }
 
     try {
       await fetch("/api/send-push", {
@@ -1118,6 +1140,7 @@ export default function Page() {
               setNotificationSettings={setNotificationSettings}
               reloadAll={reloadAll}
               setMessage={setMessage}
+              quests={quests}
             />
           )}
         </div>
