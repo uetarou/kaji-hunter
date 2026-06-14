@@ -628,6 +628,9 @@ export default function Page() {
   };
 
   const cancelQuest = async (quest: Quest) => {
+    const ok = window.confirm("このクエストを取り下げます。本当によろしいですか？");
+    if (!ok) return;
+
     const { error } = await supabase
       .from("quests")
       .update({
@@ -1071,7 +1074,7 @@ export default function Page() {
           setSettingsPage(null);
         }}
         questCount={unviewedRecruitingQuestCount}
-        requestCount={myRequestQuests.length}
+        requestCount={0}
         unreadCount={unreadCount}
       />
     </main>
@@ -1184,7 +1187,7 @@ function EditQuestModal({
               />
             </InputBlock>
 
-            <InputBlock label="希望日">
+            <InputBlock label="期限日">
               <input
                 type="date"
                 value={dueDate}
@@ -1193,7 +1196,7 @@ function EditQuestModal({
               />
             </InputBlock>
 
-            <InputBlock label="希望時間">
+            <InputBlock label="期限時間">
               <input
                 type="time"
                 value={dueTime}

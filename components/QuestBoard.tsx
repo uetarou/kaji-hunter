@@ -6,6 +6,8 @@ import type { Quest } from "@/app/page";
 
 type BoardQuest = Quest;
 
+type HomeMode = "accepted" | "requested";
+
 export const QuestBoard = { Home, Board };
 
 function Home({
@@ -26,14 +28,19 @@ function Home({
   onCancel: (quest: Quest) => void;
 }) {
   const [showCalendar, setShowCalendar] = useState(false);
+  const [detail, setDetail] = useState<{ quest: Quest; mode: HomeMode } | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   const calendarQuests = useMemo(
-    () => [...acceptedQuests, ...myRequestQuests].filter((quest) => !!quest.due_at),
+    () => [...acceptedQuests, ...myRequestQuests],
     [acceptedQuests, myRequestQuests]
   );
 
   useEffect(() => {
     setShowCalendar(false);
+    setDetail(null);
   }, [resetKey]);
 
   if (showCalendar) {
@@ -62,17 +69,18 @@ function Home({
 
         {acceptedQuests.length === 0 && <EmptyCard text="受注中クエストはありません" />}
 
-        {acceptedQuests.map((quest) => (
-          <HomeQuestCard
-            key={quest.id}
-            quest={quest}
-            statusText="進行中"
-            primaryLabel="報告"
-            onPrimary={() => onReport(quest)}
-            secondaryLabel="取り下げ"
-            onSecondary={() => onCancel(quest)}
-          />
-        ))}
+        <div className="space-y-2">
+          {acceptedQuests.map((quest) => (
+            <HomeQuestCard
+              key={quest.id}
+              quest={quest}
+              statusText="進行中"
+              onOpen={() => setDetail({ quest, mode: "accepted" })}
+              onEdit={() => onEdit(quest)}
+              onCancel={() => onCancel(quest)}
+            />
+          ))}
+        </div>
       </section>
 
       <section className="space-y-3">
@@ -80,21 +88,36 @@ function Home({
 
         {myRequestQuests.length === 0 && <EmptyCard text="依頼中クエストはありません" />}
 
-        {myRequestQuests.map((quest) => (
-          <HomeQuestCard
-            key={quest.id}
-            quest={quest}
-            statusText={getStatusText(quest.status)}
-            primaryLabel={quest.status === "waiting_confirm" ? "承認" : "変更"}
-            onPrimary={() => {
-              if (quest.status === "waiting_confirm") onApprove(quest);
-              else onEdit(quest);
-            }}
-            secondaryLabel="取り下げ"
-            onSecondary={() => onCancel(quest)}
-          />
-        ))}
+        <div className="space-y-2">
+          {myRequestQuests.map((quest) => (
+            <HomeQuestCard
+              key={quest.id}
+              quest={quest}
+              statusText={getStatusText(quest.status)}
+              onOpen={() => setDetail({ quest, mode: "requested" })}
+              onEdit={() => onEdit(quest)}
+              onCancel={() => onCancel(quest)}
+            />
+          ))}
+        </div>
       </section>
+
+      {mounted && detail && createPortal(
+        <HomeQuestDetailModal
+          quest={detail.quest}
+          mode={detail.mode}
+          onClose={() => setDetail(null)}
+          onReport={() => {
+            setDetail(null);
+            onReport(detail.quest);
+          }}
+          onApprove={() => {
+            setDetail(null);
+            onApprove(detail.quest);
+          }}
+        />,
+        document.body
+      )}
     </div>
   );
 }
@@ -106,7 +129,7 @@ function QuestCalendar({ quests, onClose }: { quests: Quest[]; onClose: () => vo
   const year = baseDate.getFullYear();
   const month = baseDate.getMonth();
   const first = new Date(year, month, 1);
-  const startDay = first.getDay();
+  const startDay = (first.getDay() + 6) % 7; // Monday start
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
   const cells = Array.from({ length: startDay + daysInMonth }, (_, index) =>
@@ -116,16 +139,12 @@ function QuestCalendar({ quests, onClose }: { quests: Quest[]; onClose: () => vo
 
   const questsByDay = useMemo(() => {
     const map = new Map<number, Quest[]>();
-    quests.forEach((quest) => {
-      if (!quest.due_at) return;
-      const date = new Date(quest.due_at);
-      if (Number.isNaN(date.getTime())) return;
-      if (date.getFullYear() !== year || date.getMonth() !== month) return;
-      const day = date.getDate();
-      map.set(day, [...(map.get(day) || []), quest]);
-    });
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const dayQuests = quests.filter((quest) => isQuestScheduledOnDay(quest, year, month, day));
+      if (dayQuests.length) map.set(day, dayQuests);
+    }
     return map;
-  }, [quests, year, month]);
+  }, [quests, year, month, daysInMonth]);
 
   const moveMonth = (amount: number) => {
     setBaseDate((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1));
@@ -160,14 +179,14 @@ function QuestCalendar({ quests, onClose }: { quests: Quest[]; onClose: () => vo
         <h2 className="mt-1 font-title text-3xl font-black leading-none">クエスト予定</h2>
       </div>
 
-      <div className="flex items-center justify-between gap-2 rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-2">
-        <button onClick={() => moveMonth(-1)} className="grid h-10 w-10 place-items-center rounded-xl border border-[#c9a86a]/15 bg-[#111827] text-lg font-black">‹</button>
-        <p className="font-title text-lg font-black text-[#d8c08a]">{year}年 {month + 1}月</p>
-        <button onClick={() => moveMonth(1)} className="grid h-10 w-10 place-items-center rounded-xl border border-[#c9a86a]/15 bg-[#111827] text-lg font-black">›</button>
+      <div className="flex items-center gap-2 rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-2">
+        <button onClick={() => moveMonth(-1)} className="grid h-9 w-9 place-items-center rounded-xl border border-[#c9a86a]/15 bg-[#111827] text-lg font-black">‹</button>
+        <p className="min-w-0 flex-1 text-center font-title text-lg font-black text-[#d8c08a]">{String(year).slice(2)}/{month + 1}</p>
+        <button onClick={() => moveMonth(1)} className="grid h-9 w-9 place-items-center rounded-xl border border-[#c9a86a]/15 bg-[#111827] text-lg font-black">›</button>
       </div>
 
       <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-black text-gray-400">
-        {["日", "月", "火", "水", "木", "金", "土"].map((day) => (
+        {["月", "火", "水", "木", "金", "土", "日"].map((day) => (
           <div key={day} className="py-1">{day}</div>
         ))}
       </div>
@@ -184,13 +203,13 @@ function QuestCalendar({ quests, onClose }: { quests: Quest[]; onClose: () => vo
               key={`${day || "blank"}-${index}`}
               disabled={!day}
               onClick={() => day && setDetailDay(day)}
-              className={`min-h-[64px] rounded-xl border p-1.5 text-left transition active:scale-[0.98] ${
+              className={`min-h-[60px] rounded-xl border p-1.5 text-left transition active:scale-[0.98] ${
                 day
                   ? hasQuests
                     ? "border-[#6e8fb4]/55 bg-[#12304c]/60"
                     : isToday
-                      ? "border-[#6e8fb4]/55 bg-[#12304c]/35"
-                      : "border-[#c9a86a]/10 bg-[#101827]"
+                    ? "border-[#6e8fb4]/55 bg-[#12304c]/35"
+                    : "border-[#c9a86a]/10 bg-[#101827]"
                   : "border-transparent bg-transparent"
               }`}
             >
@@ -264,13 +283,13 @@ function CalendarDayDetail({
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h3 className="truncate text-lg font-black">{quest.title}</h3>
-                <p className="mt-1 text-xs text-gray-400">{formatDueAt(quest.due_at)} / {quest.points ?? 20}pt</p>
+                <p className="mt-1 text-xs text-gray-400">期限：{formatDueAt(quest.due_at)} / {quest.points ?? 20}pt</p>
               </div>
               <span className="shrink-0 rounded-full border border-[#6e8fb4]/40 bg-[#355e8d]/20 px-2 py-1 text-[10px] font-bold text-blue-100">
                 {getQuestType(quest)}
               </span>
             </div>
-            {quest.description && <p className="mt-3 whitespace-pre-wrap rounded-2xl bg-[#1f2937] p-3 text-sm leading-6 text-gray-300">{quest.description}</p>}
+            {quest.description && <p className="mt-3 whitespace-pre-wrap rounded-2xl bg-[#1f2937] p-3 text-sm leading-6 text-gray-300">{stripSchedulePrefix(quest.description)}</p>}
           </div>
         ))}
       </div>
@@ -352,7 +371,7 @@ function Board({
         >
           <option value="priority">おすすめ</option>
           <option value="partner">依頼優先</option>
-          <option value="due">日時順</option>
+          <option value="due">期限順</option>
         </select>
       </div>
 
@@ -388,44 +407,36 @@ function Board({
 function HomeQuestCard({
   quest,
   statusText,
-  primaryLabel,
-  secondaryLabel,
-  onPrimary,
-  onSecondary,
+  onOpen,
+  onEdit,
+  onCancel,
 }: {
   quest: Quest;
   statusText: string;
-  primaryLabel: string;
-  secondaryLabel: string;
-  onPrimary: () => void;
-  onSecondary: () => void;
+  onOpen: () => void;
+  onEdit: () => void;
+  onCancel: () => void;
 }) {
   return (
-    <div className="rounded-3xl border border-[#c9a86a]/15 bg-[#111827] p-4 shadow-xl">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h3 className="truncate text-xl font-black">{quest.title}</h3>
-            <span className="rounded-full border border-[#6e8fb4]/40 bg-[#355e8d]/20 px-2 py-1 text-[10px] font-bold text-blue-100">
-              {statusText}
-            </span>
-          </div>
-
-          {quest.description && <p className="mt-2 line-clamp-2 text-sm text-gray-400">{quest.description}</p>}
-
-          <div className="mt-3 flex flex-wrap gap-2 text-xs">
-            <span className="rounded-full bg-[#1f2937] px-3 py-1 text-[#d8c08a]">報酬：{quest.points ?? 20}pt</span>
-            <span className="rounded-full bg-[#1f2937] px-3 py-1 text-[#d8c08a]">{formatDueAt(quest.due_at)}</span>
-          </div>
+    <div className="flex items-center gap-2 rounded-2xl border border-[#c9a86a]/15 bg-[#111827] p-3 shadow-lg">
+      <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left active:scale-[0.99]">
+        <div className="flex items-center gap-2">
+          <h3 className="truncate text-base font-black">{quest.title}</h3>
+          <span className="shrink-0 rounded-full border border-[#6e8fb4]/40 bg-[#355e8d]/20 px-2 py-0.5 text-[10px] font-bold text-blue-100">
+            {statusText}
+          </span>
         </div>
-      </div>
+        <p className="mt-1 truncate text-[12px] text-gray-400">
+          {getScheduleLabel(quest)} <span className="text-[#d8c08a]">/ {quest.points ?? 20}pt</span>
+        </p>
+      </button>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <button onClick={onPrimary} className="rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-3 text-sm font-bold text-white">
-          {primaryLabel}
+      <div className="flex shrink-0 flex-col gap-1">
+        <button onClick={onEdit} className="rounded-lg border border-[#6e8fb4]/50 bg-[#1f2937] px-2.5 py-1.5 text-[11px] font-black text-sky-100">
+          編集
         </button>
-        <button onClick={onSecondary} className="rounded-2xl border border-red-400/30 bg-red-900/40 py-3 text-sm font-bold text-red-100">
-          {secondaryLabel}
+        <button onClick={onCancel} className="rounded-lg border border-red-300/25 bg-red-950/30 px-2.5 py-1.5 text-[11px] font-black text-red-100">
+          取下
         </button>
       </div>
     </div>
@@ -438,30 +449,20 @@ function BoardQuestCard({ quest, isMine, onOpen, onEdit, onCancel }: { quest: Bo
 
   return (
     <div className={`flex w-full items-center gap-2 rounded-2xl border p-3 shadow-lg ${tone.card}`}>
-      <button
-        type="button"
-        onClick={onOpen}
-        className="min-w-0 flex-1 text-left"
-      >
+      <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left active:scale-[0.99]">
         <div className="flex items-center gap-2">
           <h3 className="truncate text-base font-black">{quest.title}</h3>
           <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${tone.badge}`}>{type}</span>
         </div>
-        <p className="mt-1 truncate text-[12px] text-gray-400">希望：{formatDueAt(quest.due_at)} / 報酬：{quest.points ?? 20}pt</p>
+        <p className="mt-1 truncate text-[12px] text-gray-400">{getScheduleLabel(quest)} / 報酬：{quest.points ?? 20}pt</p>
       </button>
 
       {isMine && (
         <div className="flex shrink-0 flex-col gap-1">
-          <button
-            onClick={onEdit}
-            className="rounded-lg border border-[#6e8fb4]/50 bg-[#1f2937] px-2.5 py-1.5 text-[11px] font-black text-sky-100"
-          >
+          <button onClick={onEdit} className="rounded-lg border border-[#6e8fb4]/50 bg-[#1f2937] px-2.5 py-1.5 text-[11px] font-black text-sky-100">
             編集
           </button>
-          <button
-            onClick={onCancel}
-            className="rounded-lg border border-red-300/25 bg-red-950/30 px-2.5 py-1.5 text-[11px] font-black text-red-100"
-          >
+          <button onClick={onCancel} className="rounded-lg border border-red-300/25 bg-red-950/30 px-2.5 py-1.5 text-[11px] font-black text-red-100">
             取下
           </button>
         </div>
@@ -471,26 +472,73 @@ function BoardQuestCard({ quest, isMine, onOpen, onEdit, onCancel }: { quest: Bo
   );
 }
 
+function HomeQuestDetailModal({
+  quest,
+  mode,
+  onClose,
+  onReport,
+  onApprove,
+}: {
+  quest: Quest;
+  mode: HomeMode;
+  onClose: () => void;
+  onReport: () => void;
+  onApprove: () => void;
+}) {
+  const canApprove = mode === "requested" && quest.status === "waiting_confirm";
+  const canReport = mode === "accepted" && quest.status === "accepted";
+
+  return (
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/75 px-4 py-6 backdrop-blur-sm">
+      <div className="w-full max-w-md max-h-[calc(100svh-48px)] overflow-y-auto rounded-3xl border border-[#c9a86a]/20 bg-[#111827] p-4 shadow-2xl">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <span className="inline-flex rounded-full border border-[#6e8fb4]/40 bg-[#355e8d]/20 px-3 py-1 text-xs font-bold text-blue-100">{getStatusText(quest.status)}</span>
+            <h2 className="mt-3 break-words text-2xl font-black">{quest.title}</h2>
+          </div>
+          <button onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] text-gray-400">✕</button>
+        </div>
+
+        <div className="space-y-3">
+          <DetailBox label="依頼内容" value={stripSchedulePrefix(quest.description || "内容なし")} />
+          <DetailBox label="期限" value={getScheduleLabel(quest)} />
+          <DetailBox label="報酬" value={`${quest.points ?? 20}pt`} />
+          {canApprove && <DetailBox label="完了報告" value="相手から完了報告が届いています。内容を確認して問題なければ承認してください。" />}
+        </div>
+
+        {canReport && (
+          <button onClick={onReport} className="mt-5 w-full rounded-2xl border border-[#6e8fb4] bg-[#355e8d] py-4 text-sm font-black text-white">
+            完了報告へ
+          </button>
+        )}
+        {canApprove && (
+          <button onClick={onApprove} className="mt-5 w-full rounded-2xl border border-emerald-300/50 bg-emerald-800 py-4 text-sm font-black text-white">
+            達成を確認する
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function QuestDetailModal({ quest, onClose, onAccept }: { quest: BoardQuest; onClose: () => void; onAccept: () => void }) {
   const type = getQuestType(quest);
   const tone = getTone(type);
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 px-4 py-6 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/75 px-4 py-6 backdrop-blur-sm">
       <div className="w-full max-w-md max-h-[calc(100svh-48px)] overflow-y-auto rounded-3xl border border-[#c9a86a]/20 bg-[#111827] p-4 shadow-2xl">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${tone.badge}`}>{type}</span>
-            <h2 className="mt-3 break-words text-3xl font-black">{quest.title}</h2>
+            <h2 className="mt-3 break-words text-2xl font-black">{quest.title}</h2>
           </div>
-          <button onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] text-gray-400">
-            ✕
-          </button>
+          <button onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] text-gray-400">✕</button>
         </div>
 
         <div className="space-y-3">
-          <DetailBox label="依頼内容" value={quest.description || "内容なし"} />
-          <DetailBox label="希望日時" value={formatDueAt(quest.due_at)} />
+          <DetailBox label="依頼内容" value={stripSchedulePrefix(quest.description || "内容なし")} />
+          <DetailBox label="期限" value={getScheduleLabel(quest)} />
           <DetailBox label="報酬" value={`${quest.points ?? 20}pt`} />
         </div>
 
@@ -532,24 +580,12 @@ function getQuestType(quest: BoardQuest) {
 
 function getTone(type: string) {
   if (type === "緊急") {
-    return {
-      card: "border-red-400/30 bg-gradient-to-br from-[#2a1115] to-[#111827]",
-      badge: "border-red-300/40 bg-red-500/20 text-red-100",
-      button: "border-red-300/50 bg-red-700",
-    };
+    return { card: "border-red-400/30 bg-gradient-to-br from-[#2a1115] to-[#111827]", badge: "border-red-300/40 bg-red-500/20 text-red-100", button: "border-red-300/50 bg-red-700" };
   }
   if (type === "パートナー") {
-    return {
-      card: "border-emerald-300/25 bg-gradient-to-br from-[#0d221a] to-[#111827]",
-      badge: "border-emerald-300/40 bg-emerald-500/15 text-emerald-100",
-      button: "border-emerald-300/40 bg-emerald-800",
-    };
+    return { card: "border-emerald-300/25 bg-gradient-to-br from-[#0d221a] to-[#111827]", badge: "border-emerald-300/40 bg-emerald-500/15 text-emerald-100", button: "border-emerald-300/40 bg-emerald-800" };
   }
-  return {
-    card: "border-[#6e8fb4]/30 bg-gradient-to-br from-[#0b1c33] to-[#111827]",
-    badge: "border-[#6e8fb4]/50 bg-[#355e8d]/30 text-blue-100",
-    button: "border-[#6e8fb4] bg-[#355e8d]",
-  };
+  return { card: "border-[#6e8fb4]/30 bg-gradient-to-br from-[#0b1c33] to-[#111827]", badge: "border-[#6e8fb4]/50 bg-[#355e8d]/30 text-blue-100", button: "border-[#6e8fb4] bg-[#355e8d]" };
 }
 
 function getStatusText(status: string) {
@@ -566,4 +602,70 @@ function formatDueAt(dueAt: string | null) {
   const date = new Date(dueAt);
   if (Number.isNaN(date.getTime())) return "指定なし";
   return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function getScheduleLabel(quest: Quest) {
+  const parsed = parseSchedulePrefix(quest.description || "");
+  if (parsed) return parsed.label;
+  return `期限：${formatDueAt(quest.due_at)}`;
+}
+
+function stripSchedulePrefix(description: string) {
+  return description.replace(/^【[^】]+】\s*/, "").trim() || "内容なし";
+}
+
+const weekdayMap: Record<string, number> = {
+  日: 0,
+  日曜: 0,
+  日曜日: 0,
+  月: 1,
+  月曜: 1,
+  月曜日: 1,
+  火: 2,
+  火曜: 2,
+  火曜日: 2,
+  水: 3,
+  水曜: 3,
+  水曜日: 3,
+  木: 4,
+  木曜: 4,
+  木曜日: 4,
+  金: 5,
+  金曜: 5,
+  金曜日: 5,
+  土: 6,
+  土曜: 6,
+  土曜日: 6,
+};
+
+function parseSchedulePrefix(description: string) {
+  const match = description.match(/^【([^】]+)】/);
+  if (!match) return null;
+  const text = match[1];
+  const weekly = text.match(/^毎週(.+?)(?:\s+(\d{1,2}:\d{2}))?$/);
+  if (weekly) {
+    const dayText = weekly[1];
+    const weekday = weekdayMap[dayText];
+    return { kind: "weekly" as const, weekday, time: weekly[2] || "", label: `毎週${dayText}${weekly[2] ? ` ${weekly[2]}` : ""}` };
+  }
+  const daily = text.match(/^毎日(?:\s+(\d{1,2}:\d{2}))?$/);
+  if (daily) return { kind: "daily" as const, time: daily[1] || "", label: `毎日${daily[1] ? ` ${daily[1]}` : ""}` };
+  if (text === "いつでも") return { kind: "anytime" as const, time: "", label: "いつでも" };
+  return null;
+}
+
+function isQuestScheduledOnDay(quest: Quest, year: number, month: number, day: number) {
+  const schedule = parseSchedulePrefix(quest.description || "");
+  const date = new Date(year, month, day);
+
+  if (schedule?.kind === "weekly" && typeof schedule.weekday === "number") {
+    return date.getDay() === schedule.weekday;
+  }
+
+  if (schedule?.kind === "daily") return true;
+
+  if (!quest.due_at) return false;
+  const due = new Date(quest.due_at);
+  if (Number.isNaN(due.getTime())) return false;
+  return due.getFullYear() === year && due.getMonth() === month && due.getDate() === day;
 }
