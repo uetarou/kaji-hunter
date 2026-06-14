@@ -117,13 +117,15 @@ function RequestModal({ type, onClose, onCreate }: { type: ModalType; onClose: (
   const [dueDate, setDueDate] = useState("");
   const [dueTime, setDueTime] = useState("");
   const [points, setPoints] = useState<number>(config.min);
-  const [dailyTimeMode, setDailyTimeMode] = useState<"anytime" | "time">("anytime");
+  const [dailyTimeMode, setDailyTimeMode] = useState<"anytime" | "time" | "weekly">("anytime");
+  const [weeklyDay, setWeeklyDay] = useState("1");
 
   useEffect(() => setPoints(config.min), [config.min, type]);
   useEffect(() => {
     if (type === "daily") {
       setDailyTimeMode("anytime");
       setDueTime("");
+      setWeeklyDay("1");
     }
   }, [type]);
 
@@ -132,16 +134,26 @@ function RequestModal({ type, onClose, onCreate }: { type: ModalType; onClose: (
     const safePoints = Math.min(Math.max(points, config.min), config.max);
     const today = new Date().toISOString().slice(0, 10);
     const dueAt = isDaily
-      ? dailyTimeMode === "time" && dueTime
+      ? dailyTimeMode === "weekly" && dueTime
+        ? getNextWeeklyDate(Number(weeklyDay), dueTime).toISOString()
+        : dailyTimeMode === "time" && dueTime
         ? new Date(`${today}T${dueTime}`).toISOString()
         : null
       : dueDate && dueTime
       ? new Date(`${dueDate}T${dueTime}`).toISOString()
       : null;
 
+    const dailyPrefix = isDaily
+      ? dailyTimeMode === "weekly"
+        ? `【毎週${WEEKDAYS[Number(weeklyDay)]}${dueTime ? ` ${dueTime}` : ""}】`
+        : dailyTimeMode === "time" && dueTime
+        ? `【毎日 ${dueTime}】`
+        : "【いつでも】"
+      : "";
+
     onCreate({
       title: title.trim(),
-      description: description.trim(),
+      description: `${dailyPrefix}${dailyPrefix && description.trim() ? " " : ""}${description.trim()}`,
       points: safePoints,
       reward: `${safePoints}pt`,
       dueAt,
@@ -188,27 +200,21 @@ function RequestModal({ type, onClose, onCreate }: { type: ModalType; onClose: (
 
               {isDaily ? (
                 <InputBlock label="希望時間">
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDailyTimeMode("anytime");
-                        setDueTime("");
-                      }}
-                      className={`rounded-2xl border px-3 py-3 text-sm font-black ${dailyTimeMode === "anytime" ? "border-sky-300/55 bg-sky-500/20 text-sky-100" : "border-[#c9a86a]/15 bg-[#1f2937]/90 text-gray-300"}`}
-                    >
-                      いつでも
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDailyTimeMode("time")}
-                      className={`rounded-2xl border px-3 py-3 text-sm font-black ${dailyTimeMode === "time" ? "border-sky-300/55 bg-sky-500/20 text-sky-100" : "border-[#c9a86a]/15 bg-[#1f2937]/90 text-gray-300"}`}
-                    >
-                      時間指定
-                    </button>
+                  <div className="grid grid-cols-3 gap-2">
+                    <DailyModeButton active={dailyTimeMode === "anytime"} onClick={() => { setDailyTimeMode("anytime"); setDueTime(""); }} label="いつでも" />
+                    <DailyModeButton active={dailyTimeMode === "time"} onClick={() => setDailyTimeMode("time")} label="時間指定" />
+                    <DailyModeButton active={dailyTimeMode === "weekly"} onClick={() => setDailyTimeMode("weekly")} label="毎週" />
                   </div>
                   {dailyTimeMode === "time" && (
                     <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className="mt-2 min-w-0 w-full rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937]/90 px-3 py-2.5 text-[16px] outline-none" />
+                  )}
+                  {dailyTimeMode === "weekly" && (
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <select value={weeklyDay} onChange={(e) => setWeeklyDay(e.target.value)} className="min-w-0 rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937]/90 px-3 py-2.5 text-[16px] outline-none">
+                        {WEEKDAYS.map((day, index) => <option key={day} value={index}>{day}</option>)}
+                      </select>
+                      <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className="min-w-0 rounded-2xl border border-[#c9a86a]/20 bg-[#1f2937]/90 px-3 py-2.5 text-[16px] outline-none" />
+                    </div>
                   )}
                 </InputBlock>
               ) : (
@@ -245,6 +251,32 @@ function RequestModal({ type, onClose, onCreate }: { type: ModalType; onClose: (
       </div>
     </div>
   );
+}
+
+
+function DailyModeButton({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-2xl border px-2 py-3 text-[12px] font-black ${active ? "border-sky-300/55 bg-sky-500/20 text-sky-100" : "border-[#c9a86a]/15 bg-[#1f2937]/90 text-gray-300"}`}
+    >
+      {label}
+    </button>
+  );
+}
+
+const WEEKDAYS = ["日曜", "月曜", "火曜", "水曜", "木曜", "金曜", "土曜"];
+
+function getNextWeeklyDate(dayIndex: number, time: string) {
+  const now = new Date();
+  const [hours, minutes] = time.split(":").map(Number);
+  const target = new Date(now);
+  target.setHours(hours || 0, minutes || 0, 0, 0);
+  const diff = (dayIndex - target.getDay() + 7) % 7;
+  target.setDate(target.getDate() + diff);
+  if (target.getTime() <= now.getTime()) target.setDate(target.getDate() + 7);
+  return target;
 }
 
 function InputBlock({ label, children }: { label: string; children: React.ReactNode }) {

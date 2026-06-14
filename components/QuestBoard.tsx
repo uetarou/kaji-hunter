@@ -22,8 +22,55 @@ function Home({
   onEdit: (quest: Quest) => void;
   onCancel: (quest: Quest) => void;
 }) {
+  const [showCalendar, setShowCalendar] = useState(false);
+  const calendarQuests = useMemo(
+    () => [...acceptedQuests, ...myRequestQuests].filter((quest) => !!quest.due_at),
+    [acceptedQuests, myRequestQuests]
+  );
+
   return (
     <div className="space-y-6">
+      <section className="rounded-3xl border border-[#c9a86a]/10 bg-gradient-to-br from-[#111827] to-[#07111f] p-4 shadow-xl">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold text-[#d8c08a]">Quest Schedule</p>
+            <h2 className="font-title text-2xl font-black">クエスト予定</h2>
+          </div>
+          <button
+            onClick={() => setShowCalendar((value) => !value)}
+            className="rounded-2xl border border-[#6e8fb4]/45 bg-[#355e8d]/30 px-4 py-3 text-sm font-black text-sky-100"
+          >
+            {showCalendar ? "閉じる" : "カレンダー"}
+          </button>
+        </div>
+
+        {showCalendar && (
+          <div className="mt-4 space-y-2">
+            {calendarQuests.length === 0 ? (
+              <div className="rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4 text-center text-sm text-gray-400">
+                希望日時があるクエストはありません
+              </div>
+            ) : (
+              calendarQuests
+                .slice()
+                .sort((a, b) => new Date(a.due_at || "").getTime() - new Date(b.due_at || "").getTime())
+                .map((quest) => (
+                  <div key={quest.id} className="rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black">{quest.title}</p>
+                        <p className="mt-1 text-xs text-gray-400">{quest.description || "内容なし"}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-[#07111f] px-3 py-1 text-xs font-bold text-[#d8c08a]">
+                        {formatDueAt(quest.due_at)}
+                      </span>
+                    </div>
+                  </div>
+                ))
+            )}
+          </div>
+        )}
+      </section>
       <section className="space-y-3">
         <SectionTitle title="受注中クエスト" badge={acceptedQuests.length} />
 
@@ -240,6 +287,14 @@ function BoardQuestCard({ quest, isMine, onOpen, onEdit, onCancel }: { quest: Bo
 
         {isMine ? (
           <div className="flex shrink-0 flex-col gap-2">
+            {quest.category === "毎日" && (
+              <button
+                onClick={onOpen}
+                className={`rounded-xl border px-3 py-2 text-xs font-bold text-white ${tone.button}`}
+              >
+                内容確認
+              </button>
+            )}
             <button
               onClick={onEdit}
               className="rounded-xl border border-[#6e8fb4]/50 bg-[#1f2937] px-3 py-2 text-xs font-bold text-sky-100"
