@@ -147,7 +147,7 @@ export function ShopView({
       <div className="flex items-end justify-between gap-3">
         <div>
           <p className="text-sm font-bold text-[#d8c08a]">Guild Shop</p>
-          <h2 className="mt-1 font-title text-4xl font-black leading-none">ショップ</h2>
+          <h2 className="mt-1 font-title text-2xl font-black leading-none">ショップ</h2>
         </div>
         <div className="mb-1 rounded-full border border-[#c9a86a]/25 bg-[#111827] px-4 py-2 text-sm font-black text-[#d8c08a]">{points}pt</div>
       </div>
@@ -167,14 +167,14 @@ function MenuCard({ title, tone, onClick }: { title: string; tone: "buy" | "sell
   return (
     <button
       onClick={onClick}
-      className={`group flex min-h-[124px] w-full items-center justify-between gap-4 rounded-3xl border p-5 text-left shadow-xl transition active:scale-[0.99] ${isBuy ? "border-orange-300/35 bg-gradient-to-br from-[#4a2608] via-[#24160d] to-[#111827]" : "border-purple-300/35 bg-gradient-to-br from-[#31174a] via-[#20112d] to-[#111827]"}`}
+      className={`group flex min-h-[108px] w-full items-center justify-between gap-4 rounded-3xl border p-5 text-left shadow-xl transition active:scale-[0.99] ${isBuy ? "border-orange-300/35 bg-gradient-to-br from-[#4a2608] via-[#24160d] to-[#111827]" : "border-purple-300/35 bg-gradient-to-br from-[#31174a] via-[#20112d] to-[#111827]"}`}
     >
       <div className="min-w-0">
-        <h3 className="font-title text-3xl font-black">{title}</h3>
+        <h3 className="font-title text-2xl font-black">{title}</h3>
       </div>
       <div className="flex shrink-0 items-center gap-3">
-        <div className={`grid h-14 w-14 place-items-center rounded-2xl border bg-[#1f2937]/90 ${isBuy ? "border-orange-200/40 text-orange-100 shadow-[0_0_24px_rgba(251,146,60,0.16)]" : "border-purple-200/40 text-purple-100 shadow-[0_0_24px_rgba(192,132,252,0.16)]"}`}>
-          <Icon className="h-8 w-8" strokeWidth={2.4} />
+        <div className={`grid h-12 w-12 place-items-center rounded-2xl border bg-[#1f2937]/90 ${isBuy ? "border-orange-200/40 text-orange-100 shadow-[0_0_24px_rgba(251,146,60,0.16)]" : "border-purple-200/40 text-purple-100 shadow-[0_0_24px_rgba(192,132,252,0.16)]"}`}>
+          <Icon className="h-7 w-7" strokeWidth={2.4} />
         </div>
         <span className="text-3xl font-black text-[#d8c08a]/70 transition group-active:translate-x-1">›</span>
       </div>
@@ -188,7 +188,7 @@ function PageHeader({ title, right, onBack }: { title: string; right: string; on
       <button onClick={onBack} className="mb-4 rounded-2xl border border-[#c9a86a]/15 bg-[#1f2937] px-4 py-3 text-sm font-black text-[#d8c08a]">‹ ショップに戻る</button>
       <div className="flex items-end justify-between gap-3">
         <div>
-          <h2 className="font-title text-4xl font-black leading-none">{title}</h2>
+          <h2 className="font-title text-2xl font-black leading-none">{title}</h2>
         </div>
         <div className="mb-1 rounded-full border border-[#c9a86a]/25 bg-[#111827] px-4 py-2 text-sm font-black text-[#d8c08a]">{right}</div>
       </div>

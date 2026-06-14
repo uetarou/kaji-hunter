@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Quest } from "@/app/page";
 
 type BoardQuest = Quest;
@@ -25,6 +26,7 @@ function Home({
   onCancel: (quest: Quest) => void;
 }) {
   const [showCalendar, setShowCalendar] = useState(false);
+
   const calendarQuests = useMemo(
     () => [...acceptedQuests, ...myRequestQuests].filter((quest) => !!quest.due_at),
     [acceptedQuests, myRequestQuests]
@@ -35,7 +37,7 @@ function Home({
   }, [resetKey]);
 
   if (showCalendar) {
-    return <QuestCalendar quests={calendarQuests} onBack={() => setShowCalendar(false)} />;
+    return <QuestCalendar quests={calendarQuests} onClose={() => setShowCalendar(false)} />;
   }
 
   return (
@@ -52,12 +54,6 @@ function Home({
           >
             カレンダー
           </button>
-        </div>
-
-        <div className="rounded-2xl border border-[#c9a86a]/10 bg-[#111827] px-4 py-3 text-sm text-gray-400">
-          {calendarQuests.length === 0
-            ? "希望日時があるクエストはありません"
-            : `希望日時あり：${calendarQuests.length}件`}
         </div>
       </section>
 
@@ -103,14 +99,16 @@ function Home({
   );
 }
 
-function QuestCalendar({ quests, onBack }: { quests: Quest[]; onBack: () => void }) {
+function QuestCalendar({ quests, onClose }: { quests: Quest[]; onClose: () => void }) {
   const [baseDate, setBaseDate] = useState(() => new Date());
-  const [selectedDay, setSelectedDay] = useState<number | null>(() => new Date().getDate());
+  const [detailDay, setDetailDay] = useState<number | null>(null);
+
   const year = baseDate.getFullYear();
   const month = baseDate.getMonth();
   const first = new Date(year, month, 1);
   const startDay = first.getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
+
   const cells = Array.from({ length: startDay + daysInMonth }, (_, index) =>
     index < startDay ? null : index - startDay + 1
   );
@@ -129,51 +127,43 @@ function QuestCalendar({ quests, onBack }: { quests: Quest[]; onBack: () => void
     return map;
   }, [quests, year, month]);
 
-  const selectedQuests = selectedDay ? questsByDay.get(selectedDay) || [] : [];
-  const memoKey = `kaji-calendar-memo-${year}-${month + 1}-${selectedDay || "none"}`;
-  const [memo, setMemo] = useState("");
-
-  useEffect(() => {
-    if (!selectedDay) {
-      setMemo("");
-      return;
-    }
-    setMemo(window.localStorage.getItem(memoKey) || "");
-  }, [memoKey, selectedDay]);
-
-  const saveMemo = (value: string) => {
-    setMemo(value);
-    if (!selectedDay) return;
-    window.localStorage.setItem(memoKey, value);
-  };
-
   const moveMonth = (amount: number) => {
     setBaseDate((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1));
-    setSelectedDay(1);
+    setDetailDay(null);
   };
 
+  if (detailDay) {
+    return (
+      <CalendarDayDetail
+        year={year}
+        month={month}
+        day={detailDay}
+        quests={questsByDay.get(detailDay) || []}
+        onBack={() => setDetailDay(null)}
+        onClose={onClose}
+      />
+    );
+  }
+
   return (
-    <section className="space-y-4 pb-28">
+    <section className="relative space-y-3 pb-28">
       <button
-        onClick={onBack}
-        className="rounded-2xl border border-[#c9a86a]/15 bg-[#1f2937] px-5 py-3 text-sm font-black text-[#d8c08a]"
+        onClick={onClose}
+        className="absolute right-0 top-0 grid h-11 w-11 place-items-center rounded-2xl border border-[#c9a86a]/15 bg-[#1f2937] text-xl font-black text-[#d8c08a]"
+        aria-label="閉じる"
       >
-        ‹ ホームに戻る
+        ×
       </button>
 
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <p className="text-sm font-bold text-[#d8c08a]">Quest Calendar</p>
-          <h2 className="mt-1 font-title text-3xl font-black leading-none">クエスト予定</h2>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => moveMonth(-1)} className="rounded-xl border border-[#c9a86a]/15 bg-[#1f2937] px-3 py-2 font-black">‹</button>
-          <button onClick={() => moveMonth(1)} className="rounded-xl border border-[#c9a86a]/15 bg-[#1f2937] px-3 py-2 font-black">›</button>
-        </div>
+      <div className="pr-14">
+        <p className="text-sm font-bold text-[#d8c08a]">Quest Calendar</p>
+        <h2 className="mt-1 font-title text-3xl font-black leading-none">クエスト予定</h2>
       </div>
 
-      <div className="rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-center">
-        <p className="font-title text-xl font-black text-[#d8c08a]">{year}年 {month + 1}月</p>
+      <div className="flex items-center justify-between gap-2 rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-2">
+        <button onClick={() => moveMonth(-1)} className="grid h-10 w-10 place-items-center rounded-xl border border-[#c9a86a]/15 bg-[#111827] text-lg font-black">‹</button>
+        <p className="font-title text-lg font-black text-[#d8c08a]">{year}年 {month + 1}月</p>
+        <button onClick={() => moveMonth(1)} className="grid h-10 w-10 place-items-center rounded-xl border border-[#c9a86a]/15 bg-[#111827] text-lg font-black">›</button>
       </div>
 
       <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-black text-gray-400">
@@ -185,73 +175,115 @@ function QuestCalendar({ quests, onBack }: { quests: Quest[]; onBack: () => void
       <div className="grid grid-cols-7 gap-1">
         {cells.map((day, index) => {
           const dayQuests = day ? questsByDay.get(day) || [] : [];
-          const active = day === selectedDay;
+          const hasQuests = dayQuests.length > 0;
+          const today = new Date();
+          const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
           return (
             <button
               type="button"
               key={`${day || "blank"}-${index}`}
               disabled={!day}
-              onClick={() => day && setSelectedDay(day)}
-              className={`min-h-[48px] rounded-xl border p-1 text-left transition ${
+              onClick={() => day && setDetailDay(day)}
+              className={`min-h-[64px] rounded-xl border p-1.5 text-left transition active:scale-[0.98] ${
                 day
-                  ? active
-                    ? "border-[#6e8fb4] bg-[#12304c]"
-                    : dayQuests.length
-                      ? "border-[#6e8fb4]/45 bg-[#12304c]/55"
+                  ? hasQuests
+                    ? "border-[#6e8fb4]/55 bg-[#12304c]/60"
+                    : isToday
+                      ? "border-[#6e8fb4]/55 bg-[#12304c]/35"
                       : "border-[#c9a86a]/10 bg-[#101827]"
                   : "border-transparent bg-transparent"
               }`}
             >
               {day && <p className="text-[11px] font-black text-[#d8c08a]">{day}</p>}
-              {!!dayQuests.length && (
-                <div className="mt-1 flex flex-wrap gap-0.5">
-                  {dayQuests.slice(0, 3).map((quest) => (
-                    <span key={quest.id} className="h-1.5 w-1.5 rounded-full bg-sky-300" />
-                  ))}
-                  {dayQuests.length > 3 && <span className="text-[8px] leading-none text-sky-100">+{dayQuests.length - 3}</span>}
-                </div>
-              )}
+              <div className="mt-1 space-y-0.5">
+                {dayQuests.slice(0, 2).map((quest) => (
+                  <p key={quest.id} className="truncate rounded bg-[#6e8fb4]/25 px-1 py-0.5 text-[8px] font-bold leading-tight text-sky-100">
+                    {quest.title}
+                  </p>
+                ))}
+                {dayQuests.length > 2 && <p className="text-[8px] font-black text-sky-200">+{dayQuests.length - 2}</p>}
+              </div>
             </button>
           );
         })}
       </div>
+    </section>
+  );
+}
 
-      <div className="rounded-3xl border border-[#c9a86a]/10 bg-[#111827] p-4 shadow-xl">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm font-black text-[#d8c08a]">
-            {selectedDay ? `${month + 1}/${selectedDay} の予定` : "日付を選択"}
-          </p>
-          <span className="text-xs font-bold text-gray-400">{selectedQuests.length}件</span>
-        </div>
+function CalendarDayDetail({
+  year,
+  month,
+  day,
+  quests,
+  onBack,
+  onClose,
+}: {
+  year: number;
+  month: number;
+  day: number;
+  quests: Quest[];
+  onBack: () => void;
+  onClose: () => void;
+}) {
+  const memoKey = `kaji-calendar-memo-${year}-${month + 1}-${day}`;
+  const [memo, setMemo] = useState("");
 
-        <div className="mt-3 space-y-2">
-          {selectedQuests.length === 0 && <p className="rounded-2xl bg-[#1f2937] p-3 text-sm text-gray-400">この日のクエストはありません</p>}
-          {selectedQuests.map((quest) => (
-            <div key={quest.id} className="rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-black">{quest.title}</p>
-                  <p className="mt-1 text-xs text-gray-400">{formatDueAt(quest.due_at)} / {quest.points ?? 20}pt</p>
-                </div>
-                <span className="shrink-0 rounded-full border border-[#6e8fb4]/40 bg-[#355e8d]/20 px-2 py-1 text-[10px] font-bold text-blue-100">
-                  {getQuestType(quest)}
-                </span>
-              </div>
-              {quest.description && <p className="mt-2 line-clamp-3 text-xs leading-5 text-gray-300">{quest.description}</p>}
-            </div>
-          ))}
-        </div>
+  useEffect(() => {
+    setMemo(window.localStorage.getItem(memoKey) || "");
+  }, [memoKey]);
 
-        <label className="mt-4 block">
-          <p className="text-xs font-black text-[#d8c08a]">メモ</p>
-          <textarea
-            value={memo}
-            onChange={(e) => saveMemo(e.target.value)}
-            placeholder="例：燃えるゴミ、資源ゴミ、買い足すものなど"
-            className="mt-2 h-24 w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-[16px] outline-none"
-          />
-        </label>
+  const saveMemo = (value: string) => {
+    setMemo(value);
+    window.localStorage.setItem(memoKey, value);
+  };
+
+  return (
+    <section className="relative space-y-4 pb-28">
+      <button
+        onClick={onClose}
+        className="absolute right-0 top-0 grid h-11 w-11 place-items-center rounded-2xl border border-[#c9a86a]/15 bg-[#1f2937] text-xl font-black text-[#d8c08a]"
+        aria-label="閉じる"
+      >
+        ×
+      </button>
+
+      <button onClick={onBack} className="rounded-2xl border border-[#c9a86a]/15 bg-[#1f2937] px-4 py-3 text-sm font-black text-[#d8c08a]">
+        ‹ カレンダーに戻る
+      </button>
+
+      <div className="pr-12">
+        <p className="text-sm font-bold text-[#d8c08a]">Quest Schedule</p>
+        <h2 className="mt-1 font-title text-3xl font-black leading-none">{month + 1}/{day} の予定</h2>
       </div>
+
+      <div className="space-y-2">
+        {quests.length === 0 && <EmptyCard text="この日のクエストはありません" />}
+        {quests.map((quest) => (
+          <div key={quest.id} className="rounded-2xl border border-[#c9a86a]/10 bg-[#111827] p-4 shadow-lg">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="truncate text-lg font-black">{quest.title}</h3>
+                <p className="mt-1 text-xs text-gray-400">{formatDueAt(quest.due_at)} / {quest.points ?? 20}pt</p>
+              </div>
+              <span className="shrink-0 rounded-full border border-[#6e8fb4]/40 bg-[#355e8d]/20 px-2 py-1 text-[10px] font-bold text-blue-100">
+                {getQuestType(quest)}
+              </span>
+            </div>
+            {quest.description && <p className="mt-3 whitespace-pre-wrap rounded-2xl bg-[#1f2937] p-3 text-sm leading-6 text-gray-300">{quest.description}</p>}
+          </div>
+        ))}
+      </div>
+
+      <label className="block rounded-3xl border border-[#c9a86a]/10 bg-[#111827] p-4 shadow-xl">
+        <p className="text-sm font-black text-[#d8c08a]">メモ</p>
+        <textarea
+          value={memo}
+          onChange={(e) => saveMemo(e.target.value)}
+          placeholder="例：燃えるゴミ、資源ゴミ、買い足すものなど"
+          className="mt-3 h-32 w-full rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-3 text-[16px] outline-none"
+        />
+      </label>
     </section>
   );
 }
@@ -273,6 +305,9 @@ function Board({
 }) {
   const [selectedQuest, setSelectedQuest] = useState<BoardQuest | null>(null);
   const [sortType, setSortType] = useState<"priority" | "partner" | "due">("priority");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   const boardQuests = useMemo(() => {
     const quests: Quest[] = [...partnerQuests];
@@ -335,7 +370,7 @@ function Board({
         ))}
       </div>
 
-      {selectedQuest && (
+      {mounted && selectedQuest && createPortal(
         <QuestDetailModal
           quest={selectedQuest}
           onClose={() => setSelectedQuest(null)}
@@ -343,7 +378,8 @@ function Board({
             onAccept(selectedQuest);
             setSelectedQuest(null);
           }}
-        />
+        />,
+        document.body
       )}
     </section>
   );
@@ -401,49 +437,36 @@ function BoardQuestCard({ quest, isMine, onOpen, onEdit, onCancel }: { quest: Bo
   const tone = getTone(type);
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") onOpen();
-      }}
-      className={`w-full rounded-2xl border p-3 text-left shadow-lg ${tone.card}`}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h3 className="truncate text-lg font-black">{quest.title}</h3>
-            <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${tone.badge}`}>{type}</span>
-          </div>
-          <p className="mt-1 truncate text-xs text-gray-400">希望：{formatDueAt(quest.due_at)} / 報酬：{quest.points ?? 20}pt</p>
+    <div className={`flex w-full items-center gap-2 rounded-2xl border p-3 shadow-lg ${tone.card}`}>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="min-w-0 flex-1 text-left"
+      >
+        <div className="flex items-center gap-2">
+          <h3 className="truncate text-base font-black">{quest.title}</h3>
+          <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${tone.badge}`}>{type}</span>
         </div>
+        <p className="mt-1 truncate text-[12px] text-gray-400">希望：{formatDueAt(quest.due_at)} / 報酬：{quest.points ?? 20}pt</p>
+      </button>
 
-        {isMine ? (
-          <div className="flex shrink-0 gap-2">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit?.();
-              }}
-              className="rounded-xl border border-[#6e8fb4]/50 bg-[#1f2937] px-3 py-2 text-xs font-black text-sky-100"
-            >
-              編集
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onCancel?.();
-              }}
-              className="rounded-xl border border-red-300/25 bg-red-950/30 px-3 py-2 text-xs font-black text-red-100"
-            >
-              取下
-            </button>
-          </div>
-        ) : (
-          <span className="shrink-0 text-2xl font-black text-[#d8c08a]">›</span>
-        )}
-      </div>
+      {isMine && (
+        <div className="flex shrink-0 flex-col gap-1">
+          <button
+            onClick={onEdit}
+            className="rounded-lg border border-[#6e8fb4]/50 bg-[#1f2937] px-2.5 py-1.5 text-[11px] font-black text-sky-100"
+          >
+            編集
+          </button>
+          <button
+            onClick={onCancel}
+            className="rounded-lg border border-red-300/25 bg-red-950/30 px-2.5 py-1.5 text-[11px] font-black text-red-100"
+          >
+            取下
+          </button>
+        </div>
+      )}
+      <span className="shrink-0 text-2xl font-black text-[#d8c08a]">›</span>
     </div>
   );
 }
@@ -453,8 +476,8 @@ function QuestDetailModal({ quest, onClose, onAccept }: { quest: BoardQuest; onC
   const tone = getTone(type);
 
   return (
-    <div className="fixed inset-0 z-[999] flex items-center justify-center overflow-y-auto bg-black/75 px-4 py-[calc(env(safe-area-inset-top)+20px)] backdrop-blur-sm">
-      <div className="my-auto w-full max-w-md max-h-[calc(100svh-56px-env(safe-area-inset-top)-env(safe-area-inset-bottom))] overflow-y-auto rounded-3xl border border-[#c9a86a]/20 bg-[#111827] p-4 shadow-2xl">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 px-4 py-6 backdrop-blur-sm">
+      <div className="w-full max-w-md max-h-[calc(100svh-48px)] overflow-y-auto rounded-3xl border border-[#c9a86a]/20 bg-[#111827] p-4 shadow-2xl">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${tone.badge}`}>{type}</span>
@@ -483,7 +506,7 @@ function DetailBox({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-[#c9a86a]/10 bg-[#1f2937] p-4">
       <p className="text-xs font-bold text-[#d8c08a]">{label}</p>
-      <p className="mt-2 text-base leading-7 text-gray-200">{value}</p>
+      <p className="mt-2 whitespace-pre-wrap text-base leading-7 text-gray-200">{value}</p>
     </div>
   );
 }
