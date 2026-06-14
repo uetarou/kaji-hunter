@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import type { Quest } from "@/app/page";
 
 type BoardQuest = Quest;
-
 type HomeMode = "accepted" | "requested";
 
 export const QuestBoard = { Home, Board };
@@ -48,76 +47,70 @@ function Home({
   }
 
   return (
-    <div className="space-y-6">
-      <section className="space-y-4">
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <p className="text-sm font-bold text-[#d8c08a]">Guild Home</p>
-            <h2 className="mt-1 font-title text-3xl font-black leading-none">ホーム</h2>
-          </div>
-          <button
-            onClick={() => setShowCalendar(true)}
-            className="mb-1 rounded-xl border border-[#6e8fb4]/45 bg-[#355e8d]/30 px-4 py-2 text-[16px] font-black text-sky-100"
-          >
-            カレンダー
-          </button>
+    <div className="space-y-5">
+      <section className="flex items-end justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold text-[#d8c08a]">Guild Home</p>
+          <h2 className="mt-1 font-title text-3xl font-black leading-none">ホーム</h2>
         </div>
+        <button
+          onClick={() => setShowCalendar(true)}
+          className="mb-1 rounded-xl border border-[#6e8fb4]/45 bg-[#355e8d]/30 px-4 py-2 text-[16px] font-black text-sky-100"
+        >
+          カレンダー
+        </button>
       </section>
 
-      <section className="space-y-3">
+      <section className="space-y-2">
         <SectionTitle title="受注中クエスト" badge={acceptedQuests.length} />
-
         {acceptedQuests.length === 0 && <EmptyCard text="受注中クエストはありません" />}
-
-        <div className="space-y-2">
-          {acceptedQuests.map((quest) => (
-            <HomeQuestCard
-              key={quest.id}
-              quest={quest}
-              statusText="進行中"
-              onOpen={() => setDetail({ quest, mode: "accepted" })}
-              onEdit={() => onEdit(quest)}
-              onCancel={() => onCancel(quest)}
-            />
-          ))}
-        </div>
+        {acceptedQuests.map((quest) => (
+          <HomeQuestCard
+            key={quest.id}
+            quest={quest}
+            statusText={getStatusText(quest.status)}
+            mode="accepted"
+            onOpen={() => setDetail({ quest, mode: "accepted" })}
+            onEdit={() => onEdit(quest)}
+            onCancel={() => onCancel(quest)}
+          />
+        ))}
       </section>
 
-      <section className="space-y-3">
+      <section className="space-y-2">
         <SectionTitle title="依頼中クエスト" badge={myRequestQuests.length} />
-
         {myRequestQuests.length === 0 && <EmptyCard text="依頼中クエストはありません" />}
-
-        <div className="space-y-2">
-          {myRequestQuests.map((quest) => (
-            <HomeQuestCard
-              key={quest.id}
-              quest={quest}
-              statusText={getStatusText(quest.status)}
-              onOpen={() => setDetail({ quest, mode: "requested" })}
-              onEdit={() => onEdit(quest)}
-              onCancel={() => onCancel(quest)}
-            />
-          ))}
-        </div>
+        {myRequestQuests.map((quest) => (
+          <HomeQuestCard
+            key={quest.id}
+            quest={quest}
+            statusText={getStatusText(quest.status)}
+            mode="requested"
+            onOpen={() => setDetail({ quest, mode: "requested" })}
+            onEdit={() => onEdit(quest)}
+            onCancel={() => onCancel(quest)}
+          />
+        ))}
       </section>
 
-      {mounted && detail && createPortal(
-        <HomeQuestDetailModal
-          quest={detail.quest}
-          mode={detail.mode}
-          onClose={() => setDetail(null)}
-          onReport={() => {
-            setDetail(null);
-            onReport(detail.quest);
-          }}
-          onApprove={() => {
-            setDetail(null);
-            onApprove(detail.quest);
-          }}
-        />,
-        document.body
-      )}
+      {mounted &&
+        detail &&
+        createPortal(
+          <HomeQuestDetailModal
+            quest={detail.quest}
+            mode={detail.mode}
+            onClose={() => setDetail(null)}
+            onReport={() => {
+              setDetail(null);
+              onReport(detail.quest);
+            }}
+            onApprove={() => {
+              setDetail(null);
+              onApprove(detail.quest);
+            }}
+          />,
+          document.body
+        )}
     </div>
   );
 }
@@ -129,13 +122,14 @@ function QuestCalendar({ quests, onClose }: { quests: Quest[]; onClose: () => vo
   const year = baseDate.getFullYear();
   const month = baseDate.getMonth();
   const first = new Date(year, month, 1);
-  const startDay = (first.getDay() + 6) % 7; // Monday start
+  const startDay = (first.getDay() + 6) % 7;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
   const cells = Array.from({ length: startDay + daysInMonth }, (_, index) =>
     index < startDay ? null : index - startDay + 1
   );
-  while (cells.length < 42) cells.push(null);
+  while (cells.length < 35) cells.push(null);
+  if (cells.length > 35) while (cells.length < 42) cells.push(null);
 
   const questsByDay = useMemo(() => {
     const map = new Map<number, Quest[]>();
@@ -158,17 +152,17 @@ function QuestCalendar({ quests, onClose }: { quests: Quest[]; onClose: () => vo
         month={month}
         day={detailDay}
         quests={questsByDay.get(detailDay) || []}
-        onBack={() => setDetailDay(null)}
+        onClose={() => setDetailDay(null)}
       />
     );
   }
 
   return (
-    <section className="relative flex min-h-[calc(100svh-210px)] flex-col gap-3 pb-24">
+    <section className="flex min-h-[calc(100svh-190px)] flex-col gap-3 pb-24">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-bold text-[#d8c08a]">Quest Calendar</p>
-          <h2 className="mt-1 font-title text-3xl font-black leading-none">クエスト予定</h2>
+          <h2 className="mt-1 font-title text-[34px] font-black leading-[0.9] tracking-tight">スケジュール</h2>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
@@ -187,13 +181,13 @@ function QuestCalendar({ quests, onClose }: { quests: Quest[]; onClose: () => vo
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-black text-gray-400">
+      <div className="grid grid-cols-7 gap-1 text-center text-[12px] font-black text-gray-400">
         {["月", "火", "水", "木", "金", "土", "日"].map((day) => (
           <div key={day} className="py-1">{day}</div>
         ))}
       </div>
 
-      <div className="grid flex-1 grid-cols-7 grid-rows-6 gap-1.5">
+      <div className="grid flex-1 grid-cols-7 gap-1.5">
         {cells.map((day, index) => {
           const dayQuests = day ? questsByDay.get(day) || [] : [];
           const hasQuests = dayQuests.length > 0;
@@ -205,18 +199,18 @@ function QuestCalendar({ quests, onClose }: { quests: Quest[]; onClose: () => vo
               key={`${day || "blank"}-${index}`}
               disabled={!day}
               onClick={() => day && setDetailDay(day)}
-              className={`min-h-[68px] rounded-xl border p-1.5 text-left transition active:scale-[0.98] ${
+              className={`min-h-[82px] rounded-xl border p-1.5 text-left transition active:scale-[0.98] ${
                 day
                   ? hasQuests
-                    ? "border-[#6e8fb4]/55 bg-[#12304c]/60"
+                    ? "border-[#6e8fb4]/60 bg-[#12304c]/70"
                     : isToday
                     ? "border-[#6e8fb4]/55 bg-[#12304c]/35"
                     : "border-[#c9a86a]/10 bg-[#101827]"
                   : "border-transparent bg-transparent"
               }`}
             >
-              {day && <p className="text-[12px] font-black text-[#d8c08a]">{day}</p>}
-              <div className="mt-1 space-y-0.5">
+              {day && <p className="text-left text-[12px] font-black leading-none text-[#d8c08a]">{day}</p>}
+              <div className="mt-2 space-y-0.5">
                 {dayQuests.slice(0, 2).map((quest) => (
                   <p key={quest.id} className="truncate rounded bg-[#6e8fb4]/25 px-1 py-0.5 text-[8px] font-bold leading-tight text-sky-100">
                     {quest.title}
@@ -237,13 +231,13 @@ function CalendarDayDetail({
   month,
   day,
   quests,
-  onBack,
+  onClose,
 }: {
   year: number;
   month: number;
   day: number;
   quests: Quest[];
-  onBack: () => void;
+  onClose: () => void;
 }) {
   const memoKey = `kaji-calendar-memo-${year}-${month + 1}-${day}`;
   const [memo, setMemo] = useState("");
@@ -260,7 +254,7 @@ function CalendarDayDetail({
   return (
     <section className="relative space-y-4 pb-28">
       <button
-        onClick={onBack}
+        onClick={onClose}
         className="absolute right-0 top-0 grid h-11 w-11 place-items-center rounded-2xl border border-[#c9a86a]/15 bg-[#1f2937] text-xl font-black text-[#d8c08a]"
         aria-label="カレンダーに戻る"
       >
@@ -279,7 +273,7 @@ function CalendarDayDetail({
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h3 className="truncate text-lg font-black">{quest.title}</h3>
-                <p className="mt-1 text-xs text-gray-400">期限：{getScheduleLabel(quest)} / {quest.points ?? 20}pt</p>
+                <p className="mt-1 text-xs text-gray-400">{getScheduleLabel(quest)} / {quest.points ?? 20}pt</p>
               </div>
               <span className="shrink-0 rounded-full border border-[#6e8fb4]/40 bg-[#355e8d]/20 px-2 py-1 text-[10px] font-bold text-blue-100">
                 {getQuestType(quest)}
@@ -327,24 +321,20 @@ function Board({
   useEffect(() => setMounted(true), []);
 
   const boardQuests = useMemo(() => {
-    const quests: Quest[] = [...partnerQuests];
-
-    return quests.sort((a, b) => {
+    const list: Quest[] = [...partnerQuests];
+    return list.sort((a, b) => {
       if (sortType === "partner") return Number(getQuestType(b) === "パートナー") - Number(getQuestType(a) === "パートナー");
-
       if (sortType === "due") {
         const aTime = a.due_at ? new Date(a.due_at).getTime() : Number.MAX_SAFE_INTEGER;
         const bTime = b.due_at ? new Date(b.due_at).getTime() : Number.MAX_SAFE_INTEGER;
         return aTime - bTime;
       }
-
       const score = (quest: BoardQuest) => {
         const type = getQuestType(quest);
         if (type === "緊急") return 0;
         if (type === "パートナー") return 1;
         return 2;
       };
-
       return score(a) - score(b);
     });
   }, [partnerQuests, sortType]);
@@ -361,7 +351,6 @@ function Board({
           <p className="text-sm font-bold text-[#d8c08a]">Guild Quest Board</p>
           <h2 className="mt-1 font-title text-3xl font-black leading-none">クエストボード</h2>
         </div>
-
         <select
           value={sortType}
           onChange={(e) => setSortType(e.target.value as "priority" | "partner" | "due")}
@@ -405,12 +394,14 @@ function Board({
 function HomeQuestCard({
   quest,
   statusText,
+  mode,
   onOpen,
   onEdit,
   onCancel,
 }: {
   quest: Quest;
   statusText: string;
+  mode: HomeMode;
   onOpen: () => void;
   onEdit: () => void;
   onCancel: () => void;
@@ -435,7 +426,7 @@ function HomeQuestCard({
           編集
         </button>
         <button onClick={onCancel} className="rounded-lg border border-red-300/25 bg-red-950/30 px-2.5 py-1.5 text-[11px] font-black text-red-100">
-          取下
+          {mode === "accepted" ? "辞退" : "取下"}
         </button>
       </div>
     </div>
@@ -453,7 +444,7 @@ function BoardQuestCard({ quest, isMine, onOpen, onEdit, onCancel }: { quest: Bo
           <h3 className="truncate text-base font-black">{quest.title}</h3>
           <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${tone.badge}`}>{type}</span>
         </div>
-        <p className="mt-1 truncate text-[12px] text-gray-400">{getScheduleLabel(quest)} / 報酬：{quest.points ?? 20}pt</p>
+        <p className="mt-1 truncate text-[12px] text-gray-400">{getScheduleLabel(quest)} / {quest.points ?? 20}pt</p>
       </button>
 
       {isMine && (
@@ -489,7 +480,7 @@ function HomeQuestDetailModal({
 
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/75 px-4 py-6 backdrop-blur-sm">
-      <div className="w-full max-w-md max-h-[calc(100svh-48px)] overflow-y-auto rounded-3xl border border-[#c9a86a]/20 bg-[#111827] p-4 shadow-2xl">
+      <div className="max-h-[calc(100svh-48px)] w-full max-w-md overflow-y-auto rounded-3xl border border-[#c9a86a]/20 bg-[#111827] p-4 shadow-2xl">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <span className="inline-flex rounded-full border border-[#6e8fb4]/40 bg-[#355e8d]/20 px-3 py-1 text-xs font-bold text-blue-100">{getStatusText(quest.status)}</span>
@@ -527,7 +518,7 @@ function QuestDetailModal({ quest, onClose, onAccept }: { quest: BoardQuest; onC
 
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/75 px-4 py-6 backdrop-blur-sm">
-      <div className="w-full max-w-md max-h-[calc(100svh-48px)] overflow-y-auto rounded-3xl border border-[#c9a86a]/20 bg-[#111827] p-4 shadow-2xl">
+      <div className="max-h-[calc(100svh-48px)] w-full max-w-md overflow-y-auto rounded-3xl border border-[#c9a86a]/20 bg-[#111827] p-4 shadow-2xl">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${tone.badge}`}>{type}</span>
@@ -569,7 +560,7 @@ function SectionTitle({ title, badge }: { title: string; badge?: number }) {
 }
 
 function EmptyCard({ text }: { text: string }) {
-  return <div className="rounded-3xl border border-[#c9a86a]/10 bg-[#111827] p-7 text-center text-gray-400">{text}</div>;
+  return <div className="rounded-2xl border border-[#c9a86a]/10 bg-[#111827] p-5 text-center text-sm text-gray-400">{text}</div>;
 }
 
 function getQuestType(quest: BoardQuest) {
