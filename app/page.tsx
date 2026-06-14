@@ -52,6 +52,7 @@ export type NotificationSettings = {
   quest_accepted: boolean;
   quest_reported: boolean;
   quest_approved: boolean;
+  deadline_reminder_enabled?: boolean;
 };
 
 export type PartnerRequest = {
@@ -225,6 +226,7 @@ export default function Page() {
       quest_accepted: true,
       quest_reported: true,
       quest_approved: true,
+      deadline_reminder_enabled: true,
     };
 
     const { data } = await supabase
@@ -1073,7 +1075,6 @@ export default function Page() {
 
           {activeTab === "home" && (
             <QuestBoard.Home
-              resetKey={homeResetKey}
               acceptedQuests={acceptedQuests}
               myRequestQuests={myRequestQuests}
               onReport={(quest: Quest) => setSelectedQuest(quest)}
@@ -1086,11 +1087,7 @@ export default function Page() {
           {activeTab === "quests" && (
             <QuestBoard.Board
               partnerQuests={partnerRecruitingQuests}
-              myId={myId || ""}
-              onAccept={(quest: AcceptableQuest) => acceptQuest(quest)}
-              onView={(quest: Quest) => markQuestViewed(quest.id)}
-              onEdit={(quest: Quest) => setEditingQuest(quest)}
-              onCancel={(quest: Quest) => cancelQuest(quest)}
+              onAccept={(quest) => acceptQuest(quest as AcceptableQuest)}
             />
           )}
 
@@ -1140,7 +1137,6 @@ export default function Page() {
               setNotificationSettings={setNotificationSettings}
               reloadAll={reloadAll}
               setMessage={setMessage}
-              quests={quests}
             />
           )}
         </div>
