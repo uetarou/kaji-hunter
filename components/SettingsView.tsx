@@ -227,12 +227,12 @@ export function SettingsView({
           <div className="rounded-3xl border border-[#c9a86a]/10 bg-[#1f2937] p-4">
             <p className="text-sm text-gray-400">自分の招待コード</p>
             <div className="mt-3 flex items-center gap-2">
-              <div className="min-w-0 flex-1 rounded-2xl bg-[#111827] p-4 font-title text-xl font-black tracking-wider text-[#d8c08a]">
+              <div className="min-w-0 flex-1 rounded-2xl bg-[#111827] p-4 font-title text-lg font-black tracking-wider text-[#d8c08a]">
                 {profile?.invite_code || generateInviteCode(user.id)}
               </div>
               <button
                 onClick={() => navigator.clipboard.writeText(profile?.invite_code || generateInviteCode(user.id))}
-                className="shrink-0 whitespace-nowrap rounded-2xl border border-[#6e8fb4] bg-[#355e8d] px-4 py-4 text-sm font-black"
+                className="shrink-0 whitespace-nowrap rounded-2xl border border-[#6e8fb4] bg-[#355e8d] px-3 py-4 text-xs font-black"
               >
                 コピー
               </button>

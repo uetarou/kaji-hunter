@@ -85,6 +85,7 @@ const tabs = ["home", "quests", "request", "shop", "settings"];
 
 export default function Page() {
   const [activeTab, setActiveTab] = useState("home");
+  const [homeResetKey, setHomeResetKey] = useState(0);
   const [settingsPage, setSettingsPage] = useState<string | null>(null);
 
   const [user, setUser] = useState<User | null>(null);
@@ -963,6 +964,7 @@ export default function Page() {
 
           {activeTab === "home" && (
             <QuestBoard.Home
+              resetKey={homeResetKey}
               acceptedQuests={acceptedQuests}
               myRequestQuests={myRequestQuests}
               onReport={(quest: Quest) => setSelectedQuest(quest)}
@@ -1064,6 +1066,7 @@ export default function Page() {
       <BottomNav
         activeTab={activeTab}
         setActiveTab={(tab) => {
+          if (tab === "home") setHomeResetKey((current) => current + 1);
           setActiveTab(tab);
           setSettingsPage(null);
         }}
